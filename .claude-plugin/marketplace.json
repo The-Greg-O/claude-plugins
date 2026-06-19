@@ -1,0 +1,27 @@
+{
+  "name": "the-greg-o",
+  "owner": {
+    "name": "Greg Overton",
+    "url": "https://github.com/The-Greg-O"
+  },
+  "plugins": [
+    {
+      "name": "recursive-improvement-loop",
+      "source": "./plugins/recursive-improvement-loop",
+      "description": "Recursive-improvement experiment toolkit: long-running agentic optimization loops with fresh-context iterations, a trusted measurement harness (hard gates, champion ratchet, statistical plateau stop), a living lab notebook, live dashboard, and full audit trail. Domain-agnostic — bring one evaluate.py.",
+      "version": "0.1.1",
+      "license": "MIT",
+      "category": "ai-tooling",
+      "tags": [
+        "optimization",
+        "experimentation",
+        "agentic-loops",
+        "recursive-improvement",
+        "evals",
+        "harness",
+        "ralph",
+        "lab-notebook"
+      ]
+    }
+  ]
+}

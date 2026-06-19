@@ -1,0 +1,11 @@
+{
+  "name": "recursive-improvement-loop",
+  "version": "0.1.1",
+  "description": "Recursive-improvement experiment toolkit: set up long-running agentic optimization loops where fresh-context Claude iterations hypothesize, implement, test against a trusted harness (hard gates, champion ratchet, plateau stop, live dashboard), and document everything in a living lab notebook. Domain-agnostic — bring one evaluate.py.",
+  "author": {
+    "name": "Greg Overton",
+    "url": "https://gregoverton.com"
+  },
+  "homepage": "https://github.com/The-Greg-O/claude-plugins",
+  "license": "MIT"
+}

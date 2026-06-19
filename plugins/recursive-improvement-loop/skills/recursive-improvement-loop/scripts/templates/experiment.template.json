@@ -1,0 +1,17 @@
+{
+  "name": "{{NAME}}",
+  "objective": "ONE sentence: what is being optimized and why (humans read this)",
+  "eval_cmd": "python3 evaluate.py",
+  "primary_metric": "score",
+  "direction": "maximize",
+  "promote_eps": 1e-9,
+  "promote_eps_rel": 0.0,
+  "secondary_metrics": [],
+  "eval_timeout_s": 600,
+  "reverify_champion": true,
+  "reverify_every": 1,
+  "reverify_rel_tol": 0.001,
+  "max_candidate_bytes": 262144,
+  "primary_axis_range": null,
+  "notes": "primary_axis_range: optional [lo, hi] to anchor the dashboard's primary-metric y-axis to MEANINGFUL physical bounds (e.g. [0, 1024] for bytes/record where top = no compression, or [0, 1] for a pass rate) instead of autoscaling to the data. direction: maximize|minimize. NOISY metric (latency, LLM-judge)? Set promote_eps_rel and reverify_rel_tol >= 2x your measured noise band, or reverify_champion='gate-only'. EXPENSIVE evaluator? reverify_every=5 re-verifies the champion only every 5th eval (each eval otherwise costs champion+candidate). Pass-rate metric: promote_eps >= 1/N_cases. max_candidate_bytes is the embed-the-answer guard — keep it tight."
+}

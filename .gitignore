@@ -1,0 +1,13 @@
+.DS_Store
+*.log
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.ruff_cache/
+
+# never commit secrets/keys
+*.pem
+*.key
+.env
+.env.*
