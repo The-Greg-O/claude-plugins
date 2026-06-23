@@ -1,0 +1,162 @@
+{
+  "champion": {
+    "id": "ha04",
+    "iter": 21,
+    "ts": "2026-06-20T03:08:25",
+    "candidate": "candidates/ha04.rs",
+    "lineage": "hi-align",
+    "primary": 88976,
+    "metrics": {
+      "fuel": 88976,
+      "fuel_per_case": 988.6,
+      "wasm_bytes": 1337984
+    }
+  },
+  "history": [
+    {
+      "id": "seed",
+      "iter": 1,
+      "ts": "2026-06-19T15:44:08",
+      "candidate": "candidates/seed.rs",
+      "lineage": "naive-dp",
+      "primary": 37856920,
+      "metrics": {
+        "fuel": 37856920,
+        "fuel_per_case": 420632.4,
+        "wasm_bytes": 1357911
+      }
+    },
+    {
+      "id": "myers01",
+      "iter": 2,
+      "ts": "2026-06-19T16:16:35",
+      "candidate": "candidates/myers01.rs",
+      "lineage": "bit-parallel",
+      "primary": 193983,
+      "metrics": {
+        "fuel": 193983,
+        "fuel_per_case": 2155.4,
+        "wasm_bytes": 1337518
+      }
+    },
+    {
+      "id": "hybrid01",
+      "iter": 3,
+      "ts": "2026-06-19T16:23:02",
+      "candidate": "candidates/hybrid01.rs",
+      "lineage": "hybrid",
+      "primary": 148622,
+      "metrics": {
+        "fuel": 148622,
+        "fuel_per_case": 1651.4,
+        "wasm_bytes": 1358821
+      }
+    },
+    {
+      "id": "hybrid02",
+      "iter": 4,
+      "ts": "2026-06-19T16:30:29",
+      "candidate": "candidates/hybrid02.rs",
+      "lineage": "hybrid",
+      "primary": 131257,
+      "metrics": {
+        "fuel": 131257,
+        "fuel_per_case": 1458.4,
+        "wasm_bytes": 1359016
+      }
+    },
+    {
+      "id": "hybrid03",
+      "iter": 5,
+      "ts": "2026-06-19T17:44:29",
+      "candidate": "candidates/hybrid03.rs",
+      "lineage": "hybrid",
+      "primary": 123052,
+      "metrics": {
+        "fuel": 123052,
+        "fuel_per_case": 1367.2,
+        "wasm_bytes": 1359092
+      }
+    },
+    {
+      "id": "cpq01",
+      "iter": 7,
+      "ts": "2026-06-19T18:56:03",
+      "candidate": "candidates/cpq01.rs",
+      "lineage": "compact-peq",
+      "primary": 110642,
+      "metrics": {
+        "fuel": 110642,
+        "fuel_per_case": 1229.4,
+        "wasm_bytes": 1358858
+      }
+    },
+    {
+      "id": "cpq04",
+      "iter": 14,
+      "ts": "2026-06-19T22:46:36",
+      "candidate": "candidates/cpq04.rs",
+      "lineage": "compact-peq",
+      "primary": 105636,
+      "metrics": {
+        "fuel": 105636,
+        "fuel_per_case": 1173.7,
+        "wasm_bytes": 1358861
+      }
+    },
+    {
+      "id": "cpq05",
+      "iter": 15,
+      "ts": "2026-06-19T23:07:29",
+      "candidate": "candidates/cpq05.rs",
+      "lineage": "compact-peq",
+      "primary": 104618,
+      "metrics": {
+        "fuel": 104618,
+        "fuel_per_case": 1162.4,
+        "wasm_bytes": 1359090
+      }
+    },
+    {
+      "id": "pt01",
+      "iter": 17,
+      "ts": "2026-06-20T00:39:47",
+      "candidate": "candidates/pt01.rs",
+      "lineage": "ptr-trim",
+      "primary": 104234,
+      "metrics": {
+        "fuel": 104234,
+        "fuel_per_case": 1158.2,
+        "wasm_bytes": 1338046
+      }
+    },
+    {
+      "id": "ha01",
+      "iter": 18,
+      "ts": "2026-06-20T00:47:14",
+      "candidate": "candidates/ha01.rs",
+      "lineage": "hi-align",
+      "primary": 98668,
+      "metrics": {
+        "fuel": 98668,
+        "fuel_per_case": 1096.3,
+        "wasm_bytes": 1338008
+      }
+    },
+    {
+      "id": "ha04",
+      "iter": 21,
+      "ts": "2026-06-20T03:08:25",
+      "candidate": "candidates/ha04.rs",
+      "lineage": "hi-align",
+      "primary": 88976,
+      "metrics": {
+        "fuel": 88976,
+        "fuel_per_case": 988.6,
+        "wasm_bytes": 1337984
+      }
+    }
+  ],
+  "baselines": {},
+  "updated": "2026-06-20T03:08:25"
+}

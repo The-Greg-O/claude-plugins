@@ -1,0 +1,17 @@
+{
+  "name": "compression-ecg",
+  "objective": "Evolve a lossless codec for MIT-BIH ECG (unpacked 16-bit waveforms) that maximizes compression ratio on a subject-disjoint holdout, beating the strongest general-purpose compressor (bzip2-9).",
+  "eval_cmd": "python3 evaluate.py",
+  "primary_metric": "ratio_holdout",
+  "direction": "maximize",
+  "promote_eps": 0.001,
+  "promote_eps_rel": 0.0,
+  "secondary_metrics": ["ratio_train", "compressed_kb_holdout"],
+  "eval_timeout_s": 600,
+  "reverify_champion": true,
+  "reverify_every": 1,
+  "reverify_rel_tol": 0.001,
+  "max_candidate_bytes": 65536,
+  "primary_axis_range": [1, 6],
+  "notes": "primary = lossless ratio (raw/compressed) on the subject-disjoint holdout split; maximize. Deterministic evaluator (same candidate + frozen data => identical ratio), so default reverify settings hold. Bar to beat is the bzip2-9 baseline (~3.7-4.2x); gzip/zstd/xz are weaker. promote_eps 0.001 ignores sub-thousandth ratio wiggle. max_candidate_bytes caps the codec SOURCE (embed-the-answer guard). The gate is byte-exact roundtrip on every record + a static no-peeking import check (see evaluate.py)."
+}

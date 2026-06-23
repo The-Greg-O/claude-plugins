@@ -14,8 +14,9 @@ statistical plateau, and leaves a complete audit trail + live dashboard.
 
 It was first built for a real lossless-compression optimization, where a hard
 losslessness gate made cheating structurally impossible while the loop invented
-and discarded codec designs unattended. The harness itself is domain-agnostic;
-see `references/examples/` for the case-study template.
+and discarded codec designs unattended. The harness itself is domain-agnostic —
+see `references/examples/` for two worked case studies (lossless ECG compression
+beating bzip2, and a Rust hot path sped up ~425×).
 
 ## The architecture (memorize this shape)
 
@@ -141,5 +142,7 @@ user, fill in:
   AlphaEvolve lineage, verified failure modes, the research behind it)
 - `references/evaluator-guide.md` — writing a trustworthy evaluate.py:
   gates, frozen data, holdouts, anti-hacking, timing methodology
-- `references/examples/` — a template for documenting a finished experiment
-  end-to-end (worked examples to come)
+- `references/examples/` — two real worked case studies: compression-ecg
+  (3.90×→4.31× lossless ECG, +12% past bzip2) and speed-editdist (naive→~425×
+  fewer instructions, rediscovers Myers), each backed by a runnable experiment
+  under the repo's top-level `examples/` with a `verify.sh`

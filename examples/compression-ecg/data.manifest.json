@@ -1,0 +1,85 @@
+{
+  "source": "PhysioNet MIT-BIH Arrhythmia Database v1.0.0",
+  "license": "ODC-By 1.0 (see NOTICE)",
+  "doi": "10.13026/C2F305",
+  "split": {
+    "train": [
+      101,
+      103,
+      105,
+      108,
+      209,
+      215,
+      230
+    ],
+    "holdout": [
+      100,
+      119,
+      207,
+      214,
+      232
+    ]
+  },
+  "records": {
+    "101": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "be9e7936586e1ddc81da251b17ef0c61473ba1b24074e6b17b46cc002aadff9c"
+    },
+    "103": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "870f91ec0d0c7ad450aa7bcd7b9cda889ea6b919f838affd6de40e7fb339dcd2"
+    },
+    "105": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "d2b30004c30f853f3cbf8ce1b9a3cb549f06916431a25ad95ee1ae80efca20e9"
+    },
+    "108": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "718f9d43ed2d330d61a81d54b3a1569315b07cb2e9136cf69f2ab317e13dba99"
+    },
+    "209": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "64bc904054abf99d352df02464f51d89cd41e69f37f9dd972875b56dc470db4e"
+    },
+    "215": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "7932cd3ccb1cc890add9d616d1ee08d78b96a63647b83412789fa5b84cd8153f"
+    },
+    "230": {
+      "split": "train",
+      "bytes": 2600010,
+      "sha256": "ed33442223a7d4122d253d8a61b7bc4018961ccab4eaf76bd6f10f8b0f88d634"
+    },
+    "100": {
+      "split": "holdout",
+      "bytes": 2600010,
+      "sha256": "c38f3dc9d8f5d8e38c57e6eb5922d39c8f0ade5cda819c15aef8ba4acebfca2c"
+    },
+    "119": {
+      "split": "holdout",
+      "bytes": 2600010,
+      "sha256": "53a041b2647fc6693b2fa6a295f3f78edf36671606411f65b94ffbb9e2b61d59"
+    },
+    "207": {
+      "split": "holdout",
+      "bytes": 2600010,
+      "sha256": "2f8bd36e66f8c1ffce23aea8446da900d4e54ae9f87a352a6d4c714ecd08557b"
+    },
+    "214": {
+      "split": "holdout",
+      "bytes": 2600010,
+      "sha256": "467835f00237ed1c4a464f8bc34661a91252a083a0377bbfe301e4aa47d5f6f3"
+    },
+    "232": {
+      "split": "holdout",
+      "bytes": 2600010,
+      "sha256": "2cc70f50bce10e322bb72e3220f78f049076ecf66adf600704882806163dfa45"
+    }
+  }
+}

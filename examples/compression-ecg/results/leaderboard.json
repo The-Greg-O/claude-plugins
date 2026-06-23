@@ -1,0 +1,138 @@
+{
+  "champion": {
+    "id": "split_nlms_v1",
+    "iter": 26,
+    "ts": "2026-06-20T01:20:11",
+    "candidate": "candidates/split_nlms_v1.py",
+    "lineage": "unspecified",
+    "primary": 4.3133,
+    "metrics": {
+      "ratio_holdout": 4.3133,
+      "compressed_kb_holdout": 2943.3
+    }
+  },
+  "history": [
+    {
+      "id": "seed",
+      "iter": 1,
+      "ts": "2026-06-19T14:33:09",
+      "candidate": "candidates/seed.py",
+      "lineage": "seed-delta-lzma",
+      "primary": 3.8959,
+      "metrics": {
+        "ratio_holdout": 3.8959,
+        "compressed_kb_holdout": 3258.7,
+        "ratio_train": 3.8198
+      }
+    },
+    {
+      "id": "varzz_bz2_v1",
+      "iter": 6,
+      "ts": "2026-06-19T15:52:56",
+      "candidate": "candidates/varzz_bz2_v1.py",
+      "lineage": "varzz-bz2",
+      "primary": 4.0907,
+      "metrics": {
+        "ratio_holdout": 4.0907,
+        "compressed_kb_holdout": 3103.5,
+        "ratio_train": 4.0098
+      }
+    },
+    {
+      "id": "perchan_varzz_bz2_v1",
+      "iter": 8,
+      "ts": "2026-06-19T16:20:05",
+      "candidate": "candidates/perchan_varzz_bz2_v1.py",
+      "lineage": "perchan-varzz-bz2",
+      "primary": 4.1043,
+      "metrics": {
+        "ratio_holdout": 4.1043,
+        "compressed_kb_holdout": 3093.2,
+        "ratio_train": 4.023
+      }
+    },
+    {
+      "id": "nibble_adapt_bz2_v1",
+      "iter": 9,
+      "ts": "2026-06-19T17:15:32",
+      "candidate": "candidates/nibble_adapt_bz2_v1.py",
+      "lineage": "nibble-adapt-bz2",
+      "primary": 4.1586,
+      "metrics": {
+        "ratio_holdout": 4.1586,
+        "compressed_kb_holdout": 3052.8,
+        "ratio_train": 4.0676
+      }
+    },
+    {
+      "id": "nlms_bz2_v1",
+      "iter": 10,
+      "ts": "2026-06-19T18:24:33",
+      "candidate": "candidates/nlms_bz2_v1.py",
+      "lineage": "nlms-bz2",
+      "primary": 4.1736,
+      "metrics": {
+        "ratio_holdout": 4.1736,
+        "compressed_kb_holdout": 3041.8,
+        "ratio_train": 4.0739
+      }
+    },
+    {
+      "id": "nlms_bz2_v2",
+      "iter": 11,
+      "ts": "2026-06-19T18:35:20",
+      "candidate": "candidates/nlms_bz2_v2.py",
+      "lineage": "nlms-bz2",
+      "primary": 4.2845,
+      "metrics": {
+        "ratio_holdout": 4.2845,
+        "compressed_kb_holdout": 2963.1,
+        "ratio_train": 4.1546
+      }
+    },
+    {
+      "id": "nlms_bz2_v3",
+      "iter": 12,
+      "ts": "2026-06-19T18:43:59",
+      "candidate": "candidates/nlms_bz2_v3.py",
+      "lineage": "nlms-bz2",
+      "primary": 4.305,
+      "metrics": {
+        "ratio_holdout": 4.305,
+        "compressed_kb_holdout": 2949.0,
+        "ratio_train": 4.174
+      }
+    },
+    {
+      "id": "rice_nlms_v1",
+      "iter": 14,
+      "ts": "2026-06-19T19:32:28",
+      "candidate": "candidates/rice_nlms_v1.py",
+      "lineage": "rice-nlms",
+      "primary": 4.3113,
+      "metrics": {
+        "ratio_holdout": 4.3113,
+        "compressed_kb_holdout": 2944.7,
+        "ratio_train": 4.198
+      }
+    },
+    {
+      "id": "split_nlms_v1",
+      "iter": 26,
+      "ts": "2026-06-20T01:20:11",
+      "candidate": "candidates/split_nlms_v1.py",
+      "lineage": "unspecified",
+      "primary": 4.3133,
+      "metrics": {
+        "ratio_holdout": 4.3133,
+        "compressed_kb_holdout": 2943.3
+      }
+    }
+  ],
+  "baselines": {
+    "baseline_gzip": 2.2563,
+    "baseline_bzip2": 3.8489,
+    "baseline_xz": 3.2337
+  },
+  "updated": "2026-06-20T01:20:11"
+}

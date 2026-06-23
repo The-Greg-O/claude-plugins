@@ -1,11 +1,17 @@
 # Worked examples
 
-Case studies of real recursive-improvement loops — each one a concrete model
-to imitate: the objective, the gate, the seed, and the champion trajectory
-with real numbers.
+Case studies of **real** recursive-improvement loops — each from an actual run, not
+an invented narrative: the objective, the gate, the seed, and the champion
+trajectory with reproducible numbers. The full runnable experiments live at the
+repo's top-level `examples/` and each ships a `verify.sh` that reproduces the
+headline number.
 
-_None published yet._ Each example here should come from an **actual loop
-run** (not an invented narrative): pick an abstract, self-contained
-optimization target, write its `evaluate.py`, run the loop, then capture the
-lab notebook and champion trajectory as a short case study in its own file
-(e.g. `tsp-heuristic.md`, `regex-golf.md`).
+| example | domain | result | verify |
+|---|---|---|---|
+| [compression-ecg](compression-ecg.md) | lossless ECG compression (Python) | 3.90× → **4.31×**, +12% past bzip2 | `examples/compression-ecg/verify.sh` |
+| [speed-editdist](speed-editdist.md) | faster Rust algorithm, deterministic fuel | naive → **425× fewer** instructions (rediscovers Myers) | `examples/speed-editdist/verify.sh` |
+
+Both show the same shape: a naive-but-correct seed, a hard correctness gate, and a
+loop that discovers the advanced technique on its own — NLMS adaptive prediction in
+one, Myers bit-parallelism (and then *beyond* it) in the other — documenting every
+promotion and dead end in a living lab notebook.

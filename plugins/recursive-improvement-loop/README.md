@@ -27,7 +27,8 @@ optimization, and the harness is domain-agnostic.
   evaluator, seed + baseline, run, operate. With references:
   - `design-principles.md` — the research-backed why
   - `evaluator-guide.md` — gates, holdouts, anti-reward-hacking, timing
-  - `examples/` — a case-study template (worked examples to come)
+  - `examples/` — two worked case studies from real runs (compression-ecg,
+    speed-editdist), each with a runnable top-level experiment + `verify.sh`
 - **`/recursive-improvement-loop:init [dir]`** — interview-driven experiment setup
 - **`/recursive-improvement-loop:status`** — one-screen health check of a running loop
 - **Scripts** (copied into each experiment so they version with it):

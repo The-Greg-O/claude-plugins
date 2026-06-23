@@ -1,0 +1,10 @@
+[package]
+name = "fuel_host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasmi = "0.32"
+
+[profile.release]
+opt-level = 2

@@ -1,0 +1,17 @@
+This example uses the MIT-BIH Arrhythmia Database (mitdb), version 1.0.0.
+
+Source:  PhysioNet — https://physionet.org/content/mitdb/1.0.0/
+License: Open Data Commons Attribution License v1.0 (ODC-By 1.0)
+DOI:     https://doi.org/10.13026/C2F305
+
+Attribution (required by ODC-By 1.0):
+  Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database.
+  IEEE Eng in Med and Biol 20(3):45-50 (2001).
+  Goldberger AL, Amaral LAN, Glass L, et al. PhysioBank, PhysioToolkit, and
+  PhysioNet: Components of a New Research Resource for Complex Physiologic
+  Signals. Circulation 101(23):e215-e220 (2000).
+
+The raw signals are NOT redistributed in this repository. fetch_data.py downloads
+them from PhysioNet (or its AWS Open Data mirror) and verifies each file by
+sha256. Only derived experiment artifacts — the evolved codec, the metrics, the
+dashboard image, and the lab notebook — are committed here.

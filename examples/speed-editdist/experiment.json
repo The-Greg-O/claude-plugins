@@ -1,0 +1,17 @@
+{
+  "name": "speed-editdist",
+  "objective": "Evolve a Rust edit-distance function (strings up to 64 bytes) that minimizes deterministic wasm fuel (instruction count) while staying byte-exact correct — the loop's job is to discover Myers bit-parallelism.",
+  "eval_cmd": "python3 evaluate.py",
+  "primary_metric": "fuel",
+  "direction": "minimize",
+  "promote_eps": 100,
+  "promote_eps_rel": 0.0,
+  "secondary_metrics": ["fuel_per_case", "wasm_bytes"],
+  "eval_timeout_s": 300,
+  "reverify_champion": true,
+  "reverify_every": 1,
+  "reverify_rel_tol": 0.0001,
+  "max_candidate_bytes": 65536,
+  "primary_axis_range": [0, 40000000],
+  "notes": "primary = total wasmi fuel (deterministic per-instruction count) over the frozen vectors; MINIMIZE. GATE = candidate compiles to wasm32 AND is byte-exact correct on the frozen vectors AND on fresh random pairs each eval (anti-hard-coding) — see evaluate.py. Fuel is exactly reproducible, so reverify_rel_tol is tiny. Naive Wagner-Fischer seed ~ 39M fuel; target ~1-4M via Myers bit-parallel (single-word, strings <= 64B). max_candidate_bytes caps the .rs SOURCE (embed-the-answer guard). The wasm sandbox (no host imports) is the no-peeking guarantee — no AST check needed."
+}

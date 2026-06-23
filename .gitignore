@@ -11,3 +11,16 @@ node_modules/
 *.key
 .env
 .env.*
+
+# worked-example fetched data + loop runtime artifacts (only curated
+# results/ frozen artifacts and the champion candidate are committed)
+examples/*/data/
+examples/*/_raw/
+examples/*/dashboard.html
+examples/*/checkpoints/
+examples/*/results.jsonl
+examples/*/leaderboard.json
+examples/*/loop_audit.jsonl
+examples/*/.last_result.json
+examples/*/.dash_opened
+examples/*/fuel_host/target/
