@@ -31,8 +31,9 @@ runner.sh                one fresh `claude -p` per iteration (the "Ralph" loop)
 
 The **harness**, not the agent, owns scoring and the stop decision. The agent never
 grades itself: it submits a candidate, a gate it cannot edit checks correctness, and
-a metric it cannot edit measures progress. The one thing you write per problem is a
-single `evaluate.py`. [Full plugin docs →](plugins/recursive-improvement-loop)
+a metric it cannot edit measures progress. The only domain-specific piece is a single
+`evaluate.py` — and **Claude drafts it with you** (see below).
+[Full plugin docs →](plugins/recursive-improvement-loop)
 
 ---
 
@@ -79,33 +80,51 @@ cd examples/speed-editdist && ./verify.sh        # → champion 88,976 fuel vs 3
 
 ---
 
-## Run your own
+## Start your own — Claude sets it up
 
-A loop fits a problem when three things hold — it's **measurable** (a script computes
-a number), **gateable** (a hard pass/fail separates valid from invalid), and
-**iterable** (one eval runs in seconds-to-minutes).
+You don't drive the harness by hand. Point Claude at a goal and it acts as the
+**orchestrator** — interviewing you, writing the code, and running the loop:
 
-```bash
-# 1. scaffold an experiment (the harness travels with it)
-python3 <plugin>/skills/recursive-improvement-loop/scripts/loop.py init my-experiment
-cd my-experiment
-
-# 2. write the ONE thing that is yours — evaluate.py — to a 10-line contract:
-#    <eval_cmd> <candidate>  →  final stdout line:
-#    {"gate_passed": true, "gate_error": "", "metrics": {"score_holdout": 4.01}}
-
-# 3. seed, baseline, then run — fresh claude -p per iteration
-python3 loop.py eval --candidate candidates/seed
-./runner.sh -n 30 -p 12          # watch the terminal + dashboard.html
+```
+/recursive-improvement-loop:init
 ```
 
-Everything else — the loop, the champion ratchet, the plateau stop, the notebook,
-the dashboard, the audit — is generic. See the interview-driven
-`/recursive-improvement-loop:init` flow, the
-[evaluator guide](plugins/recursive-improvement-loop/skills/recursive-improvement-loop/references/evaluator-guide.md),
+…or just ask: *"set up a recursive-improvement experiment to optimize &lt;X&gt;."*
+Claude then:
+
+1. **Interviews you** to pin down what actually makes a good loop — the objective, the
+   single promotion **metric**, the hard correctness **gate**, the frozen **data** +
+   holdout, the **baselines** to beat, deployment **constraints**, and the **stop**
+   policy. It pushes back on anything too vague to survive an unattended run, and
+   confirms an **Experiment Charter** with you before building anything.
+2. **Writes the code** — it scaffolds the experiment and drafts the one domain-specific
+   piece, `evaluate.py` (your gate + metrics), then seeds a candidate and records the
+   baselines.
+3. **Runs it** — it launches the loop (a fresh `claude -p` per iteration) and you just
+   watch `dashboard.html`; it stops itself on a statistical plateau.
+
+Your job is to answer the interview and read the results — you generally never touch
+`loop.py` or `runner.sh` yourself. A problem is a good fit when three things hold: it's
+**measurable**, **gateable**, and **iterable** (one eval runs in seconds-to-minutes),
+and the interview exists mostly to confirm that before burning hours on it.
+
+<details>
+<summary><b>Under the hood</b> — the commands Claude runs for you</summary>
+
+```bash
+python3 <plugin>/skills/recursive-improvement-loop/scripts/loop.py init my-experiment
+cd my-experiment
+# evaluate.py → final stdout line: {"gate_passed": true, "metrics": {"score_holdout": 4.01}}
+python3 loop.py eval --candidate candidates/seed     # seed + record baselines
+./runner.sh -n 30 -p 12                               # fresh claude -p per iteration
+```
+
+Everything but `evaluate.py` — the loop, the champion ratchet, the plateau stop, the
+lab notebook, the dashboard, the audit — is generic. Deeper docs: the
+[evaluator guide](plugins/recursive-improvement-loop/skills/recursive-improvement-loop/references/evaluator-guide.md)
 and the
-[design principles](plugins/recursive-improvement-loop/skills/recursive-improvement-loop/references/design-principles.md)
-in the plugin docs.
+[design principles](plugins/recursive-improvement-loop/skills/recursive-improvement-loop/references/design-principles.md).
+</details>
 
 > **Safety:** `runner.sh` drives an autonomous agent with
 > `--dangerously-skip-permissions`. Run it in a dedicated, version-controlled
