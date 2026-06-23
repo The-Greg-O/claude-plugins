@@ -40,9 +40,10 @@ optimization, and the harness is domain-agnostic.
   - `_stream_view.py` — live terminal rendering of the agent's thinking,
     tool calls, and harness verdicts
 
-## The one thing you write
+## The one domain-specific piece
 
-`evaluate.py` — your domain's gate + metrics, to a 10-line JSON contract:
+`evaluate.py` — your gate + metrics, to a 10-line JSON contract — which **Claude
+drafts with you** from the intake interview:
 
 ```json
 {"gate_passed": true, "gate_error": "", "metrics": {"score_holdout": 4.01}}
@@ -59,16 +60,32 @@ prompt/agent-tool optimization against eval suites, cost-per-result
 reduction, binary-size or memory squeezing — anything with a number to
 move, a correctness gate, and an eval you can run in seconds-to-minutes.
 
-## Quick start
+## Quick start — let Claude run it
+
+You don't drive the harness by hand. Ask Claude to set one up:
+
+```
+/recursive-improvement-loop:init
+```
+
+It **interviews you** (objective, metric, gate, data + holdout, baselines,
+constraints, stop policy), confirms an **Experiment Charter**, then scaffolds the
+experiment, drafts `evaluate.py`, records seed + baselines, and launches the loop —
+one fresh `claude -p` per iteration. You answer the interview and watch
+`dashboard.html`; `/recursive-improvement-loop:status` is a one-screen health check.
+You generally never run `loop.py` / `runner.sh` yourself.
+
+<details>
+<summary>The commands it runs under the hood</summary>
 
 ```bash
 python3 <plugin>/skills/recursive-improvement-loop/scripts/loop.py init my-experiment
 cd my-experiment
-# fill experiment.json + evaluate.py + PROMPT.md objectives + notebook seeds
 python3 loop.py eval --candidate candidates/seed --meta '{"lineage":"seed"}'
 python3 loop.py eval --candidate <reference> --baseline
-./runner.sh -n 25 -p 10        # watch the terminal + dashboard.html
+./runner.sh -n 25 -p 10        # fresh claude -p per iteration; watch dashboard.html
 ```
+</details>
 
 ## Safety
 
