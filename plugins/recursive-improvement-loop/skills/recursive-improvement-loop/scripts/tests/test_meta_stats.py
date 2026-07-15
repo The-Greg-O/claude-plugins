@@ -275,5 +275,53 @@ class TestPolicyBreakdown(unittest.TestCase):
         self.assertEqual(s["policies"][0]["policy_sha"], "unattributed")
 
 
+class TestLineageScoreboard(unittest.TestCase):
+    def test_per_lineage_counts_and_best_by_direction(self):
+        results = [
+            result(1, ts(1), lineage="a", promoted=True, primary=10.0),
+            result(2, ts(2), lineage="a", gate=False),
+            result(3, ts(3), lineage="b", promoted=True, primary=8.0),
+            result(4, ts(4), lineage="a", primary=9.5),
+        ]
+        rows = loop.compute_lineage_scoreboard(CFG_MIN, results)
+        by = {r["lineage"]: r for r in rows}
+        self.assertEqual(by["a"]["attempts"], 3)
+        self.assertEqual(by["a"]["gate_fails"], 1)
+        self.assertEqual(by["a"]["promotions"], 1)
+        self.assertEqual(by["a"]["best"], 9.5)      # minimize: lowest primary
+        self.assertEqual(by["a"]["last_iter"], 4)
+        self.assertEqual(by["b"]["best"], 8.0)
+
+    def test_rows_ordered_best_first(self):
+        results = [result(1, ts(1), lineage="worse", primary=1.0),
+                   result(2, ts(2), lineage="better", primary=2.0)]
+        rows = loop.compute_lineage_scoreboard(CFG, results)   # maximize
+        self.assertEqual([r["lineage"] for r in rows], ["better", "worse"])
+
+    def test_baselines_excluded(self):
+        results = [dict(result(0, ts(0)), lineage="baseline"),
+                   result(1, ts(1), lineage="a", primary=1.0)]
+        rows = loop.compute_lineage_scoreboard(CFG, results)
+        self.assertEqual([r["lineage"] for r in rows], ["a"])
+
+    def test_island_alert_when_last_three_promotions_share_lineage(self):
+        results = [result(1, ts(1), lineage="a", promoted=True, primary=1.0),
+                   result(2, ts(2), lineage="b", promoted=True, primary=2.0),
+                   result(3, ts(3), lineage="b", promoted=True, primary=3.0),
+                   result(4, ts(4), lineage="b", promoted=True, primary=4.0)]
+        self.assertEqual(loop.island_alert(results), "b")
+
+    def test_no_island_alert_with_mixed_recent_promotions(self):
+        results = [result(1, ts(1), lineage="a", promoted=True, primary=1.0),
+                   result(2, ts(2), lineage="b", promoted=True, primary=2.0),
+                   result(3, ts(3), lineage="a", promoted=True, primary=3.0)]
+        self.assertIsNone(loop.island_alert(results))
+
+    def test_no_island_alert_with_fewer_than_three_promotions(self):
+        results = [result(1, ts(1), lineage="a", promoted=True, primary=1.0),
+                   result(2, ts(2), lineage="a", promoted=True, primary=2.0)]
+        self.assertIsNone(loop.island_alert(results))
+
+
 if __name__ == "__main__":
     unittest.main()

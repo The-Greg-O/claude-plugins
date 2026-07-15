@@ -109,6 +109,12 @@ $(cat POLICY.md)"
     echo "FATAL: no PROMPT_CORE.md + POLICY.md (or legacy PROMPT.md) in $PWD" >&2
     exit 1
   fi
+  # harness-computed lineage scoreboard: island-rule data, not prose
+  local scoreboard
+  scoreboard="$(python3 loop.py lineage-scoreboard 2>/dev/null || true)"
+  [[ -n "$scoreboard" ]] && prompt="$prompt
+
+$scoreboard"
   if ((ULTRA)); then
     prompt="ultracode
 

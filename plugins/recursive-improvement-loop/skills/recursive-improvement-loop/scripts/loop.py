@@ -30,6 +30,8 @@ Commands:
                                   keep/revert verdict on the trial POLICY.md
     loop.py meta-ratchet arm [--policy-sha S]
                                   mark a trial policy as running blind
+    loop.py lineage-scoreboard    per-lineage stats block (runner injects
+                                  this into each iteration prompt)
     loop.py dashboard             regenerate dashboard only
     loop.py compact [--keep N]    roll aged notebook blocks into GRAVEYARD
 
@@ -521,6 +523,62 @@ def meta_stats(cfg, window, as_json=False):
     print("(interpretation rubric: SKILL.md failure-mode table)")
 
 
+# ---------------------------------------------------------------- lineage scoreboard
+#
+# FunSearch-bandit data for the island rule: the runner injects this into
+# every iteration prompt so "advance a dormant lineage" is driven by
+# harness-written numbers instead of the agent's reading of prose.
+
+def compute_lineage_scoreboard(cfg, results):
+    cands = [r for r in results if r.get("lineage") != "baseline"]
+    rows = {}
+    for r in cands:
+        lin = r.get("lineage") or "unspecified"
+        d = rows.setdefault(lin, {"lineage": lin, "attempts": 0,
+                                  "gate_fails": 0, "promotions": 0,
+                                  "best": None, "last_iter": None})
+        d["attempts"] += 1
+        d["gate_fails"] += 0 if r.get("gate_passed") else 1
+        d["promotions"] += 1 if r.get("promoted") else 0
+        p = r.get("primary")
+        if isinstance(p, (int, float)):
+            if d["best"] is None or (p > d["best"] if cfg["direction"] == "maximize"
+                                     else p < d["best"]):
+                d["best"] = p
+        if isinstance(r.get("iter"), int):
+            d["last_iter"] = max(d["last_iter"] or 0, r["iter"])
+    none_key = float("-inf") if cfg["direction"] == "maximize" else float("inf")
+    return sorted(rows.values(),
+                  key=lambda d: none_key if d["best"] is None else d["best"],
+                  reverse=(cfg["direction"] == "maximize"))
+
+
+def island_alert(results):
+    """The lineage that produced the last 3 promotions — if a single one."""
+    promos = [r.get("lineage") or "unspecified" for r in results
+              if r.get("lineage") != "baseline" and r.get("promoted")]
+    if len(promos) >= 3 and len(set(promos[-3:])) == 1:
+        return promos[-3]
+    return None
+
+
+def lineage_scoreboard(cfg):
+    results = read_results()
+    rows = compute_lineage_scoreboard(cfg, results)
+    if not rows:
+        return                       # nothing yet — the runner injects nothing
+    print("## Lineage scoreboard (harness-computed)")
+    for d in rows:
+        print(f"- {d['lineage']}: {d['attempts']} attempts, "
+              f"{d['promotions']} promotions, "
+              f"best {cfg['primary_metric']}={d['best']}, "
+              f"{d['gate_fails']} gate-fails, last iter {d['last_iter']}")
+    hot = island_alert(results)
+    if hot:
+        print(f"- ISLAND RULE TRIGGERED: last 3 promotions all from "
+              f"'{hot}' — advance a DIFFERENT or dormant lineage now.")
+
+
 # ---------------------------------------------------------------- meta-ratchet
 #
 # P1 of the meta-loop: a trial POLICY.md runs BLIND for one window of inner
@@ -908,6 +966,7 @@ def main():
     p_meta = sub.add_parser("meta-stats")
     p_meta.add_argument("--window", type=int, default=15)
     p_meta.add_argument("--json", action="store_true")
+    sub.add_parser("lineage-scoreboard")
     p_ratchet = sub.add_parser("meta-ratchet")
     p_ratchet.add_argument("op", choices=("check", "arm"))
     p_ratchet.add_argument("--window", type=int, default=10)
@@ -943,6 +1002,8 @@ def main():
     elif args.cmd == "meta-ratchet":
         meta_ratchet(cfg, args.op, args.window, args.eps,
                      policy_sha=args.policy_sha)
+    elif args.cmd == "lineage-scoreboard":
+        lineage_scoreboard(cfg)
     elif args.cmd == "dashboard":
         make_dashboard(cfg)
         print(f"dashboard: {DASHBOARD}")
