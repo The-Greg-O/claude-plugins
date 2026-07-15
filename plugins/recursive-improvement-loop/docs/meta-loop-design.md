@@ -1,6 +1,8 @@
 # Meta-loop design: improvement of the improvement process
 
-*Gap analysis against Weco AIDE² ("First Evidence of Recursive Self-Improvement", 2026-07-14), drafted 2026-07-15. Status: proposal — nothing implemented.*
+*Gap analysis against Weco AIDE² ("First Evidence of Recursive Self-Improvement", 2026-07-14), drafted 2026-07-15.*
+
+*Status 2026-07-15: **Phase 0 implemented** (PROMPT_CORE/POLICY split, `policy_sha` audit attribution, `loop.py meta-stats`) and **Phase 1 prototyped** (`runner.sh -M K`: blind-window meta-pass with `loop.py meta-ratchet` keep/revert via git, write boundary enforced by runner diff inspection, `phase=meta` audit rows excluded from window fitness). Steal-now #3 (holdout-primary scaffold default) done. Phase 2 and steal-now #1/#2 remain. As of this date Weco has published only the blog post — no technical report, no AIDE85 release, no third-party replication.*
 
 ## Where this plugin already stands
 

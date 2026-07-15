@@ -15,7 +15,11 @@ DESIGN RULES (see references/evaluator-guide.md for the full reasoning):
      loop on it.
   2. Evaluate on FROZEN data (hash it; fail loudly if it changes). Keep a
      HOLDOUT slice the candidates are never tuned against, and make the
-     primary metric the HOLDOUT number.
+     primary metric the HOLDOUT number — the scaffolded default is
+     score_holdout. Name split metrics <stem>_train / <stem>_holdout so
+     `loop.py meta-stats` can watch the overfit gap. (No meaningful
+     holdout in your domain — e.g. a deterministic exhaustive metric?
+     Rename to a single metric and update experiment.json.)
   3. Anti-reward-hacking: run candidates in a subprocess with a timeout;
      forbid them from reading the evaluation data or this file (static
      checks / sandboxing); never let the candidate print its own metrics.
@@ -37,7 +41,7 @@ def main():
     result = {
         "gate_passed": False,
         "gate_error": f"evaluate.py is still the unedited template (got {candidate_path})",
-        "metrics": {"score": 0.0},
+        "metrics": {"score_holdout": 0.0, "score_train": 0.0},
     }
     print(json.dumps(result))
 
