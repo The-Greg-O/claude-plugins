@@ -23,6 +23,9 @@ Commands:
     loop.py champion              re-verify stored champion (drift guard)
     loop.py plateau N             exit 1 if no promotion in last N evals
     loop.py status                one-screen experiment state
+    loop.py meta-stats [--window K] [--json]
+                                  meta-fitness readout over the last K
+                                  runner iterations (loop-improvement data)
     loop.py dashboard             regenerate dashboard only
     loop.py compact [--keep N]    roll aged notebook blocks into GRAVEYARD
 
@@ -34,6 +37,7 @@ import argparse
 import datetime as dt
 import html
 import json
+import math
 import os
 import re
 import shlex
@@ -304,6 +308,202 @@ def status(cfg):
         print("baselines: " + ", ".join(f"{k}={v}" for k, v in lb["baselines"].items()))
     fails = sum(1 for r in cands if not r.get("gate_passed"))
     print(f"gate fails: {fails}/{len(cands)}")
+
+
+# ---------------------------------------------------------------- meta-stats
+#
+# Meta-fitness readout for the meta-loop (docs/meta-loop-design.md): how well
+# is the improvement PROCESS working, per token spent, over a recent window?
+# Computed exclusively from harness/runner-written files (results.jsonl +
+# loop_audit.jsonl) — never from agent self-reports. The window is defined by
+# the last K SUCCESSFUL runner iterations; failed iterations inside that span
+# still count toward token cost (they were paid for).
+
+def _entropy_bits(counts):
+    total = sum(counts)
+    if not total:
+        return None
+    return -sum((c / total) * math.log2(c / total) for c in counts if c)
+
+
+def _hyp_tokens(text):
+    return set(re.findall(r"[a-z0-9]+", (text or "").lower()))
+
+
+def _is_fuzzy_repeat(hyp, prior_hyps, threshold=0.6):
+    """Token-set Jaccard >= threshold against any earlier hypothesis."""
+    toks = _hyp_tokens(hyp)
+    if not toks:
+        return False
+    for prev in prior_hyps:
+        ptoks = _hyp_tokens(prev)
+        if ptoks and len(toks & ptoks) / len(toks | ptoks) >= threshold:
+            return True
+    return False
+
+
+def compute_meta_stats(cfg, results, audits, window):
+    """Pure function of the two record streams; returns the stats dict."""
+    pm = cfg["primary_metric"]
+    sign = 1.0 if cfg["direction"] == "maximize" else -1.0
+    cands = [r for r in results if r.get("lineage") != "baseline"]
+    ok_audits = sorted((a for a in audits if a.get("exit") == 0),
+                       key=lambda a: a.get("ts_start") or "")
+
+    if ok_audits:
+        t_lo = ok_audits[-window:][0].get("ts_start") or ""
+        win_audits = sorted((a for a in audits
+                             if (a.get("ts_start") or "") >= t_lo),
+                            key=lambda a: a.get("ts_start") or "")
+        evals = [r for r in cands if (r.get("ts") or "") >= t_lo]
+        window_iters = len(ok_audits[-window:])
+        tokens = {"in": sum(a.get("in_tokens") or 0 for a in win_audits),
+                  "out": sum(a.get("out_tokens") or 0 for a in win_audits)}
+        tokens["total"] = tokens["in"] + tokens["out"]
+        wall_s = round(sum(a.get("wall_s") or 0 for a in win_audits), 1)
+    else:                       # evals run outside the runner: window by eval
+        t_lo = None
+        win_audits = []
+        evals = cands[-window:]
+        window_iters = None
+        tokens = None
+        wall_s = None
+
+    n = len(evals)
+    n_promoted = sum(1 for r in evals if r.get("promoted"))
+    gate_fails = sum(1 for r in evals if not r.get("gate_passed"))
+    deltas = [r["delta_vs_champion"][pm] for r in evals
+              if r.get("promoted") and isinstance(
+                  r.get("delta_vs_champion", {}).get(pm), (int, float))]
+
+    # champion improvement across the window, signed so positive = better.
+    # Base = champion entering the window; a first-ever promotion measures
+    # from the first champion (improvement over "nothing" is undefined).
+    promoted = [r for r in evals if r.get("promoted")
+                and isinstance(r.get("primary"), (int, float))]
+    champ_before = None
+    pre = cands[:len(cands) - n]
+    for r in pre:
+        if r.get("promoted") and isinstance(r.get("primary"), (int, float)):
+            champ_before = r["primary"]
+    if promoted:
+        base = champ_before if champ_before is not None else promoted[0]["primary"]
+        improvement = sign * (promoted[-1]["primary"] - base)
+    else:
+        improvement = 0.0
+    imp_per_mtoken = (round(improvement / (tokens["total"] / 1e6), 6)
+                      if tokens and tokens["total"] else None)
+
+    lineage_counts = {}
+    for r in evals:
+        lin = r.get("lineage") or "unspecified"
+        lineage_counts[lin] = lineage_counts.get(lin, 0) + 1
+
+    # hypothesis novelty: window hypotheses fuzzy-matched against ALL prior
+    # hypotheses (evals is a chronological suffix of cands)
+    hyp_all = [r.get("hypothesis") or "" for r in cands]
+    start = len(cands) - n
+    repeats = considered = 0
+    for k, r in enumerate(evals):
+        if not _hyp_tokens(r.get("hypothesis") or ""):
+            continue
+        considered += 1
+        if _is_fuzzy_repeat(r["hypothesis"], hyp_all[:start + k]):
+            repeats += 1
+
+    gaps = {}
+    for r in evals:
+        if not r.get("gate_passed"):
+            continue
+        m = r.get("metrics") or {}
+        for key, v in m.items():
+            if key.endswith("_train") and isinstance(v, (int, float)):
+                h = m.get(key[:-len("_train")] + "_holdout")
+                if isinstance(h, (int, float)):
+                    gaps.setdefault(key[:-len("_train")], []).append(v - h)
+
+    policies = []
+    if win_audits:
+        groups = {}
+        for a in win_audits:
+            sha = a.get("policy_sha") or "unattributed"
+            g = groups.setdefault(sha, {"policy_sha": sha, "iters": 0,
+                                        "evals": 0, "promotions": 0,
+                                        "gate_fails": 0, "tokens_total": 0})
+            g["iters"] += 1 if a.get("exit") == 0 else 0
+            g["tokens_total"] += (a.get("in_tokens") or 0) + (a.get("out_tokens") or 0)
+        for r in evals:
+            rts = r.get("ts") or ""
+            sha = win_audits[0].get("policy_sha") or "unattributed"
+            for a in win_audits:
+                if (a.get("ts_start") or "") <= rts:
+                    sha = a.get("policy_sha") or "unattributed"
+                else:
+                    break
+            g = groups[sha]
+            g["evals"] += 1
+            g["promotions"] += 1 if r.get("promoted") else 0
+            g["gate_fails"] += 0 if r.get("gate_passed") else 1
+        policies = list(groups.values())
+
+    return {
+        "window": window,
+        "window_iters": window_iters,
+        "since_ts": t_lo or (evals[0].get("ts") if evals else None),
+        "evals": n,
+        "promotions": n_promoted,
+        "promotions_per_eval": round(n_promoted / n, 4) if n else None,
+        "mean_promoted_delta": (round(sum(deltas) / len(deltas), 6)
+                                if deltas else None),
+        "gate_fail_rate": round(gate_fails / n, 4) if n else None,
+        "champion_improvement": round(improvement, 6),
+        "champion_improvement_per_mtoken": imp_per_mtoken,
+        "tokens": tokens,
+        "wall_s_total": wall_s,
+        "lineage_entropy_bits": (round(_entropy_bits(lineage_counts.values()), 4)
+                                 if lineage_counts else None),
+        "lineage_counts": lineage_counts,
+        "hypothesis_repeat_rate": (round(repeats / considered, 4)
+                                   if considered else None),
+        "train_holdout_gap": {k: round(sum(v) / len(v), 6)
+                              for k, v in gaps.items()},
+        "policies": policies,
+    }
+
+
+def meta_stats(cfg, window, as_json=False):
+    results = read_results()
+    audits = ([json.loads(line) for line in open(AUDIT) if line.strip()]
+              if os.path.exists(AUDIT) else [])
+    s = compute_meta_stats(cfg, results, audits, window)
+    if as_json:
+        print(json.dumps(s, indent=2))
+        return
+    span = (f"last {s['window_iters']} runner iterations"
+            if s["window_iters"] is not None
+            else f"last {s['evals']} evals (no audit data)")
+    print(f"meta-stats: {span}, since {s['since_ts'] or '—'}")
+    print(f"evals:      {s['evals']}  promotions: {s['promotions']} "
+          f"(rate {s['promotions_per_eval']})  "
+          f"gate-fail rate: {s['gate_fail_rate']}")
+    print(f"champion:   {s['champion_improvement']:+} {cfg['primary_metric']} "
+          f"over window  ({s['champion_improvement_per_mtoken']} per Mtoken)")
+    print(f"mean promoted delta: {s['mean_promoted_delta']}")
+    if s["tokens"]:
+        print(f"cost:       {s['tokens']['total']:,} tokens "
+              f"(in {s['tokens']['in']:,} / out {s['tokens']['out']:,}), "
+              f"{s['wall_s_total']}s wall")
+    print(f"diversity:  lineage entropy {s['lineage_entropy_bits']} bits "
+          f"{s['lineage_counts']}")
+    print(f"novelty:    hypothesis repeat rate {s['hypothesis_repeat_rate']}")
+    if s["train_holdout_gap"]:
+        gap = ", ".join(f"{k}={v:+}" for k, v in s["train_holdout_gap"].items())
+        print(f"overfit:    train-holdout gap {gap}")
+    for p in s["policies"]:
+        print(f"policy {p['policy_sha']}: {p['iters']} iters, "
+              f"{p['evals']} evals, {p['promotions']} promotions, "
+              f"{p['gate_fails']} gate fails, {p['tokens_total']:,} tokens")
+    print("(interpretation rubric: SKILL.md failure-mode table)")
 
 
 # ---------------------------------------------------------------- dashboard
@@ -608,7 +808,7 @@ def init_experiment(target):
     print("next steps:")
     print("  1. fill in experiment.json (eval_cmd, primary_metric, direction)")
     print("  2. write evaluate.py to the contract (gate + metrics)")
-    print("  3. edit PROMPT.md objectives + LAB_NOTEBOOK.md seed INSIGHTS")
+    print("  3. edit POLICY.md objectives + LAB_NOTEBOOK.md seed INSIGHTS")
     print("  4. add a seed candidate, then: python3 loop.py eval --candidate <f>")
     print("  5. record baselines: python3 loop.py eval --candidate <f> --baseline")
     print("  6. run: ./runner.sh -n 25 -p 10")
@@ -630,6 +830,9 @@ def main():
     p_plat = sub.add_parser("plateau")
     p_plat.add_argument("n", type=int)
     sub.add_parser("status")
+    p_meta = sub.add_parser("meta-stats")
+    p_meta.add_argument("--window", type=int, default=15)
+    p_meta.add_argument("--json", action="store_true")
     sub.add_parser("dashboard")
     p_comp = sub.add_parser("compact")
     p_comp.add_argument("--keep", type=int, default=15)
@@ -655,6 +858,8 @@ def main():
         sys.exit(plateau(args.n))
     elif args.cmd == "status":
         status(cfg)
+    elif args.cmd == "meta-stats":
+        meta_stats(cfg, args.window, as_json=args.json)
     elif args.cmd == "dashboard":
         make_dashboard(cfg)
         print(f"dashboard: {DASHBOARD}")

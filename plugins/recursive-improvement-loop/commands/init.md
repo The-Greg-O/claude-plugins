@@ -25,8 +25,9 @@ already loaded), and run the intake interview from
    (default to a sensible directory name from the charter if I didn't
    give one), then fill every artifact FROM the charter: experiment.json
    (metric/direction/noise config), evaluate.py (per
-   references/evaluator-guide.md), PROMPT.md standing objectives + bars
-   to beat, LAB_NOTEBOOK.md lineages + seed INSIGHTS.
+   references/evaluator-guide.md), POLICY.md standing objectives + bars
+   to beat, LAB_NOTEBOOK.md lineages + seed INSIGHTS. (PROMPT_CORE.md is
+   the frozen protocol — scaffold it, never rewrite it.)
 4. **Verify the rails**: a seed candidate must pass and become champion; a
    deliberately-broken candidate MUST be rejected by the gate; record
    baselines with `--baseline`.

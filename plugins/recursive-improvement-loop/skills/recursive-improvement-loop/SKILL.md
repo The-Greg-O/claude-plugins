@@ -80,8 +80,12 @@ user, fill in:
 - `evaluate.py` — THE critical artifact; follow
   `references/evaluator-guide.md` (gate on adversarial inputs, frozen+hashed
   data, holdout split, subprocess+timeout isolation, noise-banded timing).
-- `PROMPT.md` — fill the Standing Objectives section with concrete bars to
-  beat (baselines, status quo, theoretical bound if computable).
+- `POLICY.md` — the mutable strategy layer (read set, island-rule
+  constants, Standing Objectives): fill the objectives with concrete bars
+  to beat (baselines, status quo, theoretical bound if computable). The
+  frozen protocol + trust rules live in `PROMPT_CORE.md` — scaffolded,
+  never edited; the runner concatenates the two into each iteration's
+  prompt, so POLICY.md is hot-swappable mid-campaign.
 - `LAB_NOTEBOOK.md` — seed INSIGHTS with everything already known (data
   profile, prior art numbers, constraints) and 3-5 starting **lineages**
   (structurally different solution families, for island-style diversity).
@@ -111,8 +115,9 @@ user, fill in:
 - Runs on the operator's logged-in Claude subscription (headless `claude
   -p`), `--dangerously-skip-permissions` inside the experiment dir — keep
   the experiment in its own directory, with version control.
-- Audit: `loop_audit.jsonl` records wall time / turns / tokens per
-  iteration; `results.jsonl` records every attempt + per-metric deltas.
+- Audit: `loop_audit.jsonl` records wall time / turns / tokens / active
+  `policy_sha` per iteration; `results.jsonl` records every attempt +
+  per-metric deltas.
 
 ### Step 5 — Operate
 - Watch the train/holdout gap (overfitting) and gate-failure rate (prompt
@@ -120,7 +125,13 @@ user, fill in:
 - The loop stops itself on plateau; restart anytime — state is on disk.
 - Between campaigns, curate the notebook: promote ACTIVE-LOG lessons into
   INSIGHTS, run `loop.py compact`, prune stale lineages.
-- `python3 loop.py status` for a one-screen summary.
+- `python3 loop.py status` for a one-screen summary;
+  `python3 loop.py meta-stats --window 15` for the meta-fitness readout
+  (promotions/eval, champion delta per Mtoken, gate-fail rate, lineage
+  entropy, hypothesis-repeat rate, train↔holdout gap, per-policy
+  attribution) — the raw material for tuning POLICY.md between windows;
+  interpret it with the failure-mode table below. The meta-loop design
+  lives in the plugin's `docs/meta-loop-design.md`.
 
 ## Failure modes to check when a loop misbehaves
 | Symptom | Likely cause | Fix |

@@ -5,6 +5,13 @@
 # (LAB_NOTEBOOK.md, results.jsonl, leaderboard.json). The harness owns the
 # only stop decision (statistical plateau); --max-iters is runaway insurance.
 #
+# The per-iteration prompt is PROMPT_CORE.md (frozen protocol + trust rules)
+# + POLICY.md (mutable strategy — the meta-loop's surface), concatenated
+# fresh each iteration so policy edits hot-swap without touching the runner.
+# Each audit record carries policy_sha = sha256 of the mutable file, so
+# meta-fitness can be attributed to the policy that produced it. A legacy
+# monolithic PROMPT.md still works (attributed as its own policy).
+#
 # Usage:
 #   ./runner.sh [options]
 #     -n, --max-iters N     hard cap on iterations            (default 25)
@@ -56,7 +63,7 @@ while [[ $# -gt 0 ]]; do
     -t|--max-turns)  MAX_TURNS="$2"; shift 2 ;;
     -s|--sleep)      SLEEP_S="$2"; shift 2 ;;
     --dry-run)       DRY_RUN=1; shift ;;
-    -h|--help)       sed -n '2,28p' "$0"; exit 0 ;;
+    -h|--help)       sed -n '2,35p' "$0"; exit 0 ;;
     *) echo "unknown option: $1 (try --help)"; exit 2 ;;
   esac
 done
@@ -66,9 +73,25 @@ done
 ULTRA=0
 if [[ "$EFFORT" == "ultracode" ]]; then EFFORT="xhigh"; ULTRA=1; fi
 
+sha12() {  # short content hash for policy attribution in the audit log
+  python3 -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$1"
+}
+
 build_cmd() {  # $1 = model
   local prompt
-  prompt="$(cat PROMPT.md)"
+  # the policy surface is hot-swappable: re-read and re-hash it every iteration
+  if [[ -f PROMPT_CORE.md && -f POLICY.md ]]; then
+    prompt="$(cat PROMPT_CORE.md)
+
+$(cat POLICY.md)"
+    POLICY_SHA="$(sha12 POLICY.md)"
+  elif [[ -f PROMPT.md ]]; then     # legacy monolithic prompt
+    prompt="$(cat PROMPT.md)"
+    POLICY_SHA="$(sha12 PROMPT.md)"
+  else
+    echo "FATAL: no PROMPT_CORE.md + POLICY.md (or legacy PROMPT.md) in $PWD" >&2
+    exit 1
+  fi
   if ((ULTRA)); then
     prompt="ultracode
 
@@ -95,7 +118,7 @@ are truth.)"
 if ((DRY_RUN)); then
   build_cmd "$MODEL"
   printf 'would run, per iteration:\n  %q' "${CMD[0]}"
-  printf ' %q' "${CMD[@]:1:1}" "PROMPT.md(contents)" "${CMD[@]:3}"
+  printf ' %q' "${CMD[@]:1:1}" "PROMPT_CORE.md+POLICY.md(contents)" "${CMD[@]:3}"
   echo
   exit 0
 fi
@@ -155,7 +178,7 @@ except Exception:
     d = {}
 u = d.get('usage') or {}
 rec = {'iter': $iter, 'model': '$model', 'ts_start': '$ts_start',
-       'wall_s': $wall, 'exit': $rc,
+       'wall_s': $wall, 'exit': $rc, 'policy_sha': '$POLICY_SHA',
        'api_ms': d.get('duration_api_ms'), 'turns': d.get('num_turns'),
        'in_tokens': u.get('input_tokens'), 'out_tokens': u.get('output_tokens'),
        'result_tail': (d.get('result') or '')[-200:]}

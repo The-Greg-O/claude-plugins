@@ -30,4 +30,4 @@ noise bands for any timing metrics; what the hard gate checks>
 |---|---|---|---|---|
 
 ## ACTIVE LOG
-(append iteration blocks below — newest last; format in PROMPT.md §5)
+(append iteration blocks below — newest last; format in PROMPT_CORE.md §5)

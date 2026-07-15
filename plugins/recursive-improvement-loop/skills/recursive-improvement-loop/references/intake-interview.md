@@ -15,7 +15,7 @@ How to run it:
 - End by writing the **Experiment Charter** (template at the bottom) and
   getting an explicit "yes, that's the experiment" BEFORE running
   `loop.py init`. The charter then seeds experiment.json, evaluate.py,
-  PROMPT.md objectives, and the notebook header.
+  POLICY.md objectives, and the notebook header.
 
 ## Phase 0 — Sharpen the objective
 
@@ -91,7 +91,7 @@ How to run it:
   if this loop never ran?"); refusing the trivial baseline (it often
   embarrasses sophisticated approaches and that's the point).
 - Probe: *what's the bar a candidate must beat to be worth deploying?*
-  This becomes the PROMPT.md "bars to beat" line.
+  This becomes the POLICY.md "bars to beat" line.
 
 ## Phase 5 — Noise and eval cost (the config trap)
 
@@ -117,7 +117,7 @@ would the numbers be? And what does one eval cost?"**
 - Probe: dependency whitelist? memory/binary ceiling? runtime target
   (MCU? ARM? lambda)? latency budget? license? Tracking an A/B
   portability tier, say, is cheap and can shape the endgame.
-- Sets: evaluator ban-lists, secondary footprint metrics, PROMPT.md
+- Sets: evaluator ban-lists, secondary footprint metrics, POLICY.md
   constraints section, `max_candidate_bytes`.
 
 ## Phase 7 — Lineages (the hypothesis space)
@@ -166,6 +166,6 @@ Write this, show it, get explicit confirmation, THEN scaffold:
 
 Charter → artifacts: every field maps directly — metric/direction/noise
 → experiment.json; gate/data/constraints → evaluate.py; baselines/bars →
-PROMPT.md objectives + `--baseline` runs; lineages/known facts →
+POLICY.md objectives + `--baseline` runs; lineages/known facts →
 LAB_NOTEBOOK.md tables and INSIGHTS. If a charter field is still vague,
 the interview isn't done.
