@@ -22,16 +22,23 @@ audit_sha() {
   python3 -c "import json,sys;print(json.loads(open(sys.argv[1]).readline()).get('policy_sha',''))" "$1" 2>/dev/null
 }
 
-# fake claude: captures the -p prompt into the cwd, emits a valid result event
+# fake claude: captures the -p prompt into the cwd, emits a valid result
+# event. On a META-PASS prompt it edits POLICY.md (and, when
+# FAKE_META_VIOLATE is set, illegally touches PROMPT_CORE.md too).
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/claude" <<'FAKE'
 #!/bin/bash
+PROMPT=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -p) printf '%s' "$2" > prompt_capture.txt; shift 2 ;;
+    -p) PROMPT="$2"; printf '%s' "$2" > "${FAKE_CAPTURE:-prompt_capture.txt}"; shift 2 ;;
     *) shift ;;
   esac
 done
+if [[ "$PROMPT" == *"META-PASS"* ]]; then
+  echo "TRIAL-EDIT marker $RANDOM" >> POLICY.md
+  [[ -n "${FAKE_META_VIOLATE:-}" ]] && echo "corrupted" >> PROMPT_CORE.md
+fi
 echo '{"type":"result","is_error":false,"usage":{"input_tokens":1000,"output_tokens":100},"num_turns":1,"duration_api_ms":10,"result":"fake iteration done"}'
 FAKE
 chmod +x "$WORK/bin/claude"
@@ -80,6 +87,50 @@ expected="$(sha12 "$EXP2/PROMPT.md")"
 got="$(audit_sha "$EXP2/loop_audit.jsonl")"
 [[ "$got" == "$expected" ]] && pass "legacy policy_sha = sha256(PROMPT.md)[:12]" \
   || fail "legacy policy_sha '$got' != sha256(PROMPT.md)[:12] '$expected'"
+
+# ---------- scenario 3: meta-pass arms a trial, blind window fails, revert
+EXP3="$WORK/exp3"
+python3 "$SCRIPTS/loop.py" init "$EXP3" >/dev/null
+[[ -f "$EXP3/META_PROMPT.md" ]] && pass "init scaffolds META_PROMPT.md" \
+                               || fail "init should scaffold META_PROMPT.md"
+# -M 2: meta point at i=2 (baseline + arm trial 1) and i=4 (fitness 0 < eps
+# 0.5 -> revert trial 1, then arm trial 2). Exactly ONE trial marker survives.
+(cd "$EXP3" && DASH_OPEN=never FAKE_CAPTURE="$WORK/exp3_prompt.txt" \
+   ./runner.sh -n 4 -p 99 -s 0 -M 2 --meta-eps 0.5 >"$WORK/exp3_runner.log" 2>&1) \
+  || fail "runner exited nonzero in meta mode"
+markers=$(grep -c "TRIAL-EDIT" "$EXP3/POLICY.md" 2>/dev/null || true)
+[[ "$markers" == "1" ]] && pass "failed trial reverted, new trial armed (1 marker)" \
+  || fail "expected exactly 1 TRIAL-EDIT marker in POLICY.md, got '$markers'"
+meta_rows=$(python3 -c "
+import json
+rows=[json.loads(l) for l in open('$EXP3/loop_audit.jsonl') if l.strip()]
+print(sum(1 for r in rows if r.get('phase')=='meta'))" 2>/dev/null)
+[[ "$meta_rows" == "2" ]] && pass "2 meta-pass audit rows recorded" \
+  || fail "expected 2 phase=meta audit rows, got '$meta_rows'"
+pending=$(python3 -c "
+import json;print(json.load(open('$EXP3/meta_state.json'))['pending'])" 2>/dev/null)
+[[ "$pending" == "True" ]] && pass "meta_state pending after re-arm" \
+  || fail "meta_state.json pending expected True, got '$pending'"
+[[ -d "$EXP3/.git" ]] && pass "experiment brought under git for revert" \
+  || fail "runner should git-init the experiment for the meta-ratchet"
+
+# ---------- scenario 4: meta boundary violation is fully rolled back
+EXP4="$WORK/exp4"
+python3 "$SCRIPTS/loop.py" init "$EXP4" >/dev/null
+CORE_BEFORE="$(cat "$EXP4/PROMPT_CORE.md")"
+(cd "$EXP4" && DASH_OPEN=never FAKE_META_VIOLATE=1 FAKE_CAPTURE="$WORK/exp4_prompt.txt" \
+   ./runner.sh -n 2 -p 99 -s 0 -M 2 >"$WORK/exp4_runner.log" 2>&1) \
+  || fail "runner exited nonzero in violation scenario"
+grep -q "corrupted" "$EXP4/PROMPT_CORE.md" \
+  && fail "PROMPT_CORE.md corruption was NOT rolled back" \
+  || pass "PROMPT_CORE.md violation rolled back"
+grep -q "TRIAL-EDIT" "$EXP4/POLICY.md" \
+  && fail "violating meta-pass POLICY.md edit was NOT rolled back" \
+  || pass "violating POLICY.md edit rolled back"
+pending=$(python3 -c "
+import json;print(json.load(open('$EXP4/meta_state.json'))['pending'])" 2>/dev/null)
+[[ "$pending" == "False" ]] && pass "violating trial not armed" \
+  || fail "meta_state pending expected False after violation, got '$pending'"
 
 echo
 if ((FAILURES)); then echo "$FAILURES assertion(s) FAILED"; exit 1; fi

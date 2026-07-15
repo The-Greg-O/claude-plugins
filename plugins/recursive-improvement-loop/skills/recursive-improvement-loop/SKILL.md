@@ -107,7 +107,12 @@ user, fill in:
 ```bash
 ./runner.sh -n 25 -p 10                  # 25 iters max, stop at 10 w/o promotion
 ./runner.sh -m opus -e ultracode -n 30   # strongest: opus + multi-agent fan-out
-./runner.sh --help                       # model/effort/turns/sleep flags
+./runner.sh -n 100 -p 15 -M 10           # + meta-pass every 10 iters: a bounded
+                                         #   agent may propose ONE POLICY.md edit,
+                                         #   trialled blind and auto-reverted
+                                         #   unless it beats the incumbent window
+                                         #   (worthwhile on long campaigns)
+./runner.sh --help                       # model/effort/turns/sleep/meta flags
 ```
 - Terminal streams the agent's live thinking/tool-calls/verdicts
   (`_stream_view.py`); `dashboard.html` auto-refreshes with metric trends,

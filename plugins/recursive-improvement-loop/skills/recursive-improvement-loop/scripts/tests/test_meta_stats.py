@@ -197,6 +197,59 @@ class TestTrainHoldoutGap(unittest.TestCase):
         self.assertEqual(s["train_holdout_gap"], {})
 
 
+class TestMetaRowExclusion(unittest.TestCase):
+    def test_meta_rows_not_iterations_and_their_cost_tracked_separately(self):
+        audits = [audit(1, ts(0), tin=100, tout=10),
+                  dict(audit(0, ts(5), tin=50, tout=5), phase="meta"),
+                  audit(2, ts(10), tin=100, tout=10)]
+        results = [result(1, ts(1)), result(2, ts(11))]
+        s = loop.compute_meta_stats(CFG, results, audits, window=2)
+        self.assertEqual(s["window_iters"], 2)
+        self.assertEqual(s["tokens"]["total"], 220)
+        self.assertEqual(s["meta_tokens"], 55)
+
+    def test_meta_rows_excluded_from_policy_breakdown(self):
+        audits = [audit(1, ts(0), tin=100, tout=10, sha="aaa"),
+                  dict(audit(0, ts(5), tin=50, tout=5, sha="bbb"), phase="meta")]
+        results = [result(1, ts(1))]
+        s = loop.compute_meta_stats(CFG, results, audits, window=2)
+        self.assertEqual([p["policy_sha"] for p in s["policies"]], ["aaa"])
+
+
+class TestMetaRatchet(unittest.TestCase):
+    def test_first_check_baselines_incumbent(self):
+        v, st = loop.decide_meta_ratchet(None, 1.0, eps=0.1)
+        self.assertEqual(v, "baseline")
+        self.assertEqual(st["incumbent_fitness"], 1.0)
+        self.assertFalse(st["pending"])
+
+    def test_pending_trial_kept_when_it_beats_incumbent_by_eps(self):
+        state = {"incumbent_fitness": 1.0, "pending": True}
+        v, st = loop.decide_meta_ratchet(state, 1.2, eps=0.1)
+        self.assertEqual(v, "keep")
+        self.assertEqual(st["incumbent_fitness"], 1.2)
+        self.assertFalse(st["pending"])
+
+    def test_pending_trial_reverted_when_within_eps(self):
+        state = {"incumbent_fitness": 1.0, "pending": True}
+        v, st = loop.decide_meta_ratchet(state, 1.05, eps=0.1)
+        self.assertEqual(v, "revert")
+        self.assertEqual(st["incumbent_fitness"], 1.0)
+        self.assertFalse(st["pending"])
+
+    def test_pending_trial_reverted_when_worse(self):
+        state = {"incumbent_fitness": 1.0, "pending": True}
+        v, st = loop.decide_meta_ratchet(state, 0.4, eps=0.1)
+        self.assertEqual(v, "revert")
+        self.assertEqual(st["incumbent_fitness"], 1.0)
+
+    def test_no_pending_trial_refreshes_incumbent_estimate(self):
+        state = {"incumbent_fitness": 2.0, "pending": False}
+        v, st = loop.decide_meta_ratchet(state, 1.5, eps=0.1)
+        self.assertEqual(v, "baseline")
+        self.assertEqual(st["incumbent_fitness"], 1.5)
+
+
 class TestPolicyBreakdown(unittest.TestCase):
     def test_evals_and_tokens_attributed_by_timestamp(self):
         audits = [audit(1, ts(0), tin=10, tout=1, sha="aaa"),

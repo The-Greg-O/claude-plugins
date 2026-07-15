@@ -26,6 +26,10 @@ Commands:
     loop.py meta-stats [--window K] [--json]
                                   meta-fitness readout over the last K
                                   runner iterations (loop-improvement data)
+    loop.py meta-ratchet check --window K [--eps E]
+                                  keep/revert verdict on the trial POLICY.md
+    loop.py meta-ratchet arm [--policy-sha S]
+                                  mark a trial policy as running blind
     loop.py dashboard             regenerate dashboard only
     loop.py compact [--keep N]    roll aged notebook blocks into GRAVEYARD
 
@@ -52,6 +56,7 @@ RESULTS = os.path.join(ROOT, "results.jsonl")
 LEADERBOARD = os.path.join(ROOT, "leaderboard.json")
 NOTEBOOK = os.path.join(ROOT, "LAB_NOTEBOOK.md")
 AUDIT = os.path.join(ROOT, "loop_audit.jsonl")
+META_STATE = os.path.join(ROOT, "meta_state.json")
 CHECKPOINT_DIR = os.path.join(ROOT, "checkpoints")
 DASHBOARD = os.path.join(ROOT, "dashboard.html")
 DASH_MARKER = os.path.join(ROOT, ".dash_opened")
@@ -347,19 +352,27 @@ def compute_meta_stats(cfg, results, audits, window):
     pm = cfg["primary_metric"]
     sign = 1.0 if cfg["direction"] == "maximize" else -1.0
     cands = [r for r in results if r.get("lineage") != "baseline"]
-    ok_audits = sorted((a for a in audits if a.get("exit") == 0),
+    # meta-pass rows (phase == "meta") are meta-loop overhead: they never
+    # count as inner iterations or window fitness cost — both compared
+    # windows carry one meta-pass each — but their spend is reported.
+    ok_audits = sorted((a for a in audits
+                        if a.get("exit") == 0 and a.get("phase") != "meta"),
                        key=lambda a: a.get("ts_start") or "")
 
     if ok_audits:
         t_lo = ok_audits[-window:][0].get("ts_start") or ""
-        win_audits = sorted((a for a in audits
-                             if (a.get("ts_start") or "") >= t_lo),
-                            key=lambda a: a.get("ts_start") or "")
+        span = sorted((a for a in audits
+                       if (a.get("ts_start") or "") >= t_lo),
+                      key=lambda a: a.get("ts_start") or "")
+        win_audits = [a for a in span if a.get("phase") != "meta"]
+        meta_rows = [a for a in span if a.get("phase") == "meta"]
         evals = [r for r in cands if (r.get("ts") or "") >= t_lo]
         window_iters = len(ok_audits[-window:])
         tokens = {"in": sum(a.get("in_tokens") or 0 for a in win_audits),
                   "out": sum(a.get("out_tokens") or 0 for a in win_audits)}
         tokens["total"] = tokens["in"] + tokens["out"]
+        meta_tokens = sum((a.get("in_tokens") or 0) + (a.get("out_tokens") or 0)
+                          for a in meta_rows)
         wall_s = round(sum(a.get("wall_s") or 0 for a in win_audits), 1)
     else:                       # evals run outside the runner: window by eval
         t_lo = None
@@ -367,6 +380,7 @@ def compute_meta_stats(cfg, results, audits, window):
         evals = cands[-window:]
         window_iters = None
         tokens = None
+        meta_tokens = None
         wall_s = None
 
     n = len(evals)
@@ -459,6 +473,7 @@ def compute_meta_stats(cfg, results, audits, window):
         "champion_improvement": round(improvement, 6),
         "champion_improvement_per_mtoken": imp_per_mtoken,
         "tokens": tokens,
+        "meta_tokens": meta_tokens,
         "wall_s_total": wall_s,
         "lineage_entropy_bits": (round(_entropy_bits(lineage_counts.values()), 4)
                                  if lineage_counts else None),
@@ -504,6 +519,66 @@ def meta_stats(cfg, window, as_json=False):
               f"{p['evals']} evals, {p['promotions']} promotions, "
               f"{p['gate_fails']} gate fails, {p['tokens_total']:,} tokens")
     print("(interpretation rubric: SKILL.md failure-mode table)")
+
+
+# ---------------------------------------------------------------- meta-ratchet
+#
+# P1 of the meta-loop: a trial POLICY.md runs BLIND for one window of inner
+# iterations; it is kept only if its window's meta-fitness beats the
+# incumbent's window by >= eps, else the runner reverts it (git). This file
+# owns only the decision + state; the runner owns the git mechanics.
+
+def decide_meta_ratchet(state, fitness, eps):
+    """State machine for the meta-ratchet. Returns (verdict, new_state).
+
+    verdicts: baseline (no trial ran; incumbent fitness refreshed),
+              keep     (trial beat incumbent by >= eps; trial is the new
+                        incumbent),
+              revert   (trial failed to beat; runner must restore POLICY.md).
+    """
+    if not state:
+        return "baseline", {"incumbent_fitness": fitness, "pending": False}
+    if state.get("pending"):
+        if fitness >= state["incumbent_fitness"] + eps:
+            return "keep", {"incumbent_fitness": fitness, "pending": False}
+        return "revert", {"incumbent_fitness": state["incumbent_fitness"],
+                          "pending": False}
+    return "baseline", {"incumbent_fitness": fitness, "pending": False}
+
+
+def _window_fitness(stats):
+    """Scalar meta-fitness of a window: champion improvement per Mtoken
+    (cost-normalized by design; see docs/meta-loop-design.md)."""
+    f = stats.get("champion_improvement_per_mtoken")
+    return f if isinstance(f, (int, float)) else 0.0
+
+
+def meta_ratchet(cfg, op, window, eps, policy_sha=None):
+    state = json.load(open(META_STATE)) if os.path.exists(META_STATE) else None
+    if op == "arm":
+        if state is None:
+            sys.exit("FATAL: meta-ratchet arm before any check — run "
+                     "`loop.py meta-ratchet check` first")
+        state["pending"] = True
+        state["trial_policy_sha"] = policy_sha
+        state["armed_ts"] = dt.datetime.now().isoformat(timespec="seconds")
+        json.dump(state, open(META_STATE, "w"), indent=2)
+        print(json.dumps({"verdict": "armed", "trial_policy_sha": policy_sha}))
+        return
+    results = read_results()
+    audits = ([json.loads(line) for line in open(AUDIT) if line.strip()]
+              if os.path.exists(AUDIT) else [])
+    stats = compute_meta_stats(cfg, results, audits, window)
+    fitness = _window_fitness(stats)
+    verdict, new_state = decide_meta_ratchet(state, fitness, eps)
+    new_state["checked_ts"] = dt.datetime.now().isoformat(timespec="seconds")
+    new_state["window"] = window
+    new_state["eps"] = eps
+    json.dump(new_state, open(META_STATE, "w"), indent=2)
+    print(json.dumps({"verdict": verdict, "fitness": fitness,
+                      "incumbent_fitness": new_state["incumbent_fitness"],
+                      "window_evals": stats["evals"],
+                      "window_promotions": stats["promotions"]}))
 
 
 # ---------------------------------------------------------------- dashboard
@@ -833,6 +908,11 @@ def main():
     p_meta = sub.add_parser("meta-stats")
     p_meta.add_argument("--window", type=int, default=15)
     p_meta.add_argument("--json", action="store_true")
+    p_ratchet = sub.add_parser("meta-ratchet")
+    p_ratchet.add_argument("op", choices=("check", "arm"))
+    p_ratchet.add_argument("--window", type=int, default=10)
+    p_ratchet.add_argument("--eps", type=float, default=0.0)
+    p_ratchet.add_argument("--policy-sha", default=None)
     sub.add_parser("dashboard")
     p_comp = sub.add_parser("compact")
     p_comp.add_argument("--keep", type=int, default=15)
@@ -860,6 +940,9 @@ def main():
         status(cfg)
     elif args.cmd == "meta-stats":
         meta_stats(cfg, args.window, as_json=args.json)
+    elif args.cmd == "meta-ratchet":
+        meta_ratchet(cfg, args.op, args.window, args.eps,
+                     policy_sha=args.policy_sha)
     elif args.cmd == "dashboard":
         make_dashboard(cfg)
         print(f"dashboard: {DASHBOARD}")

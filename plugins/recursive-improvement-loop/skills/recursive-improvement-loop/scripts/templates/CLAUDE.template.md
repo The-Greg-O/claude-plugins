@@ -11,9 +11,11 @@ or headless.
   referees. Never modify either.
 - `results.jsonl`, `leaderboard.json`, `loop_audit.jsonl`, `checkpoints/`,
   and the frozen evaluation data are harness/runner-owned. Never write.
-- `PROMPT_CORE.md` is part of the trust boundary — never modify it.
-  `POLICY.md` is the meta-loop's mutation surface: iteration agents FOLLOW
-  it but never edit it. On any conflict, PROMPT_CORE.md wins.
+- `PROMPT_CORE.md` and `META_PROMPT.md` are part of the trust boundary —
+  never modify them. `meta_state.json` is harness-owned — never write.
+- `POLICY.md` is the meta-loop's mutation surface: iteration agents FOLLOW
+  it but never edit it (the runner's META-PASS is the sole agent allowed
+  to, per META_PROMPT.md). On any conflict, PROMPT_CORE.md wins.
 - All metrics come from the printed HARNESS VERDICT. Never estimate or
   self-report numbers. If notebook and results.jsonl disagree,
   results.jsonl wins.
