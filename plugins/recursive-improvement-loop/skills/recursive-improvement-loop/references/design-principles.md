@@ -86,6 +86,22 @@ wild includes: special-casing test inputs, exploiting harness bugs,
 silently-lossy "wins", timing noise harvesting, and embedding evaluation
 answers in the candidate.
 
+## 8. The meta-loop: improve the process, never the referee
+(Weco AIDE², 2026 — first credible evidence that an outer loop rewriting the
+inner agent's iteration machinery compounds.) Our inner agent's "machinery"
+is its policy surface: the mutable half of the prompt (POLICY.md — read
+set, island-rule constants, standing objectives), cleanly split from the
+frozen protocol (PROMPT_CORE.md) so no optimization pressure can loosen
+trust language. A meta-pass may propose ONE small policy edit per window,
+judged blind on the NEXT window's harness-computed, cost-normalized
+fitness (champion delta per Mtoken), and auto-reverted unless it wins by
+an epsilon sized to window noise. Sobering priors transfer: ~9/10 outer
+proposals fail; winners are simple compositions; nested loops compound
+noise. The referee — loop.py, evaluate.py, frozen data, and the meta-stats
+computation itself — is never mutable at any level, for the same reason
+the inner agent never grades itself. Full design: the plugin's
+`docs/meta-loop-design.md`.
+
 ## When NOT to use a loop
 - No computable metric (taste, strategy, one-shot designs) → use normal
   iterative development with human review.

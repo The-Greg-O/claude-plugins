@@ -34,11 +34,32 @@ optimization, and the harness is domain-agnostic.
 - **Scripts** (copied into each experiment so they version with it):
   - `loop.py` — generic harness: eval contract, champion ratchet +
     regression guard, plateau detection, notebook compaction, dashboard
-    (matplotlib optional), embed-the-answer size guard
+    (matplotlib optional), embed-the-answer size guard, `meta-stats`
+    (meta-fitness readout), `meta-ratchet` (blind-window keep/revert),
+    `lineage-scoreboard` (island-rule data injected into each prompt)
   - `runner.sh` — fresh-`claude -p`-per-iteration driver with model/effort
     flags (incl. `-e ultracode` for multi-agent iterations), audit logging
+    with per-iteration `policy_sha` attribution, and an optional meta-pass
+    (`-M K`, below)
   - `_stream_view.py` — live terminal rendering of the agent's thinking,
     tool calls, and harness verdicts
+  - `tests/` — unit suite for the harness stats + an end-to-end runner
+    integration test (fake `claude` binary)
+
+## The meta-loop (experimental)
+
+The iteration prompt is split into `PROMPT_CORE.md` (frozen protocol +
+trust rules) and `POLICY.md` (mutable strategy: read set, island-rule
+constants, standing objectives). With `./runner.sh -M K`, every K
+iterations a bounded meta-agent reads the harness-computed
+`loop.py meta-stats` readout (promotions per eval, champion improvement
+per Mtoken, gate-fail rate, lineage entropy, hypothesis-repeat rate,
+train↔holdout gap) and may propose ONE small edit to `POLICY.md`. The
+edit runs **blind** for the next K iterations and is auto-reverted (git)
+unless its window beats the incumbent's — the same ratchet discipline the
+inner loop applies to candidates, applied to the loop's own strategy. The
+referee is never mutable at either level. Design + phasing:
+[`docs/meta-loop-design.md`](docs/meta-loop-design.md).
 
 ## The one domain-specific piece
 

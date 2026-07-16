@@ -126,11 +126,29 @@ and the
 [design principles](plugins/recursive-improvement-loop/skills/recursive-improvement-loop/references/design-principles.md).
 </details>
 
+---
+
+## The loop that improves the loop
+
+New (experimental): an outer **meta-loop** that optimizes *how the loop iterates*,
+with the same referee discipline the inner loop applies to candidates. The
+iteration prompt is split into a frozen protocol (`PROMPT_CORE.md` — trust rules,
+never mutated) and a mutable strategy layer (`POLICY.md` — read set, island-rule
+constants, objectives). Run with `-M K` and every K iterations a bounded
+meta-agent reads a harness-computed fitness readout (`loop.py meta-stats`:
+promotions per eval, champion improvement **per million tokens**, lineage
+entropy, hypothesis-repeat rate…) and may propose ONE small `POLICY.md` edit —
+which then runs **blind** for the next K iterations and is auto-reverted via git
+unless its window measurably beats the incumbent's. The evaluator and harness
+stay frozen at both levels: the meta-loop tunes strategy, never the referee.
+Design and phasing: [`docs/meta-loop-design.md`](plugins/recursive-improvement-loop/docs/meta-loop-design.md).
+
 > **Safety:** `runner.sh` drives an autonomous agent with
 > `--dangerously-skip-permissions`. Run it in a dedicated, version-controlled
 > experiment directory. Trust boundaries are enforced in software — the agent cannot
 > edit the harness or its evaluator, never scores itself, and candidate code runs
-> sandboxed.
+> sandboxed. The meta-agent is boundary-checked the same way: any write outside
+> `POLICY.md` is detected and rolled back by the runner.
 
 ## License
 

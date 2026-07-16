@@ -48,7 +48,9 @@ actually found.
   same pool, or memorization transfers.
 - Report both (`score_train`, `score_holdout`); set primary_metric to the
   HOLDOUT one. A growing train↔holdout gap = overfitting, visible on the
-  dashboard.
+  dashboard. Keep the `<stem>_train` / `<stem>_holdout` naming convention —
+  `loop.py meta-stats` pairs metrics by those suffixes to compute the
+  overfit-gap readout.
 
 ## Anti-reward-hacking checklist
 - **Sandbox the candidate**: run it in a subprocess with a wall-clock
