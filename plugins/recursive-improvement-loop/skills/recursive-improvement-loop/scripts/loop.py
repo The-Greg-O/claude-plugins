@@ -3,7 +3,8 @@
 loop.py — domain-agnostic harness core for recursive-improvement experiments.
 
 The harness is the TRUSTED REFEREE of an experiment: the sole writer of
-results.jsonl and leaderboard.json, owner of the champion ratchet, the
+every trusted record (results.jsonl, leaderboard.json, loop_audit.jsonl,
+meta_state.json), owner of the champion ratchet, the
 plateau stop, and notebook compaction (rendering lives in the
 _dashboard.py sibling).
 Everything domain-specific lives in ONE user-supplied evaluator script.

@@ -25,7 +25,7 @@ The shape is **a loop of disposable agents around durable artifacts**:
 ```
 runner.sh                one fresh `claude -p` per iteration (the "Ralph" loop)
   └─ iteration agent     reads notebook → ONE hypothesis → implement →
-       └─ loop.py        TRUSTED HARNESS: sole writer of results / leaderboard
+       └─ loop.py        TRUSTED HARNESS: sole writer of every trusted record
             └─ evaluate.py   THE ONLY DOMAIN CODE — gate + metrics contract
 ```
 

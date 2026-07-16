@@ -10,7 +10,8 @@ or headless.
 - `loop.py` (harness) and `evaluate.py` (evaluator) are the trusted
   referees. Never modify either.
 - `results.jsonl`, `leaderboard.json`, `loop_audit.jsonl`, `checkpoints/`,
-  and the frozen evaluation data are harness/runner-owned. Never write.
+  and the frozen evaluation data are harness-written (the runner only
+  measures; loop.py is the sole writer of trusted records). Never write.
 - `PROMPT_CORE.md` and `META_PROMPT.md` are part of the trust boundary —
   never modify them. `meta_state.json` is harness-owned — never write.
 - `POLICY.md` is the meta-loop's mutation surface: iteration agents FOLLOW

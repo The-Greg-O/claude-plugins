@@ -32,17 +32,20 @@ optimization, and the harness is domain-agnostic.
 - **`/recursive-improvement-loop:init [dir]`** — interview-driven experiment setup
 - **`/recursive-improvement-loop:status`** — one-screen health check of a running loop
 - **Scripts** (copied into each experiment so they version with it):
-  - `loop.py` — generic harness: eval contract, champion ratchet +
-    regression guard, plateau detection, notebook compaction, dashboard
-    (matplotlib optional), embed-the-answer size guard, `meta-stats`
+  - `loop.py` — generic harness and sole writer of every trusted record:
+    eval contract, champion ratchet + regression guard, plateau detection,
+    notebook compaction, embed-the-answer size guard, `audit-append`
+    (per-iteration audit rows with `policy_sha` attribution), `meta-stats`
     (meta-fitness readout), `meta-ratchet` (blind-window keep/revert),
     `lineage-scoreboard` (island-rule data injected into each prompt)
   - `runner.sh` — fresh-`claude -p`-per-iteration driver with model/effort
-    flags (incl. `-e ultracode` for multi-agent iterations), audit logging
-    with per-iteration `policy_sha` attribution, and an optional meta-pass
-    (`-M K`, below)
+    flags (incl. `-e ultracode` for multi-agent iterations) and an
+    optional meta-pass (`-M K`, below); it measures and orchestrates but
+    never assembles a trusted record
   - `_stream_view.py` — live terminal rendering of the agent's thinking,
     tool calls, and harness verdicts
+  - `_dashboard.py` — dashboard rendering (matplotlib optional, HTML
+    fallback), deliberately outside the referee's trusted surface
   - `tests/` — unit suite for the harness stats + an end-to-end runner
     integration test (fake `claude` binary)
 

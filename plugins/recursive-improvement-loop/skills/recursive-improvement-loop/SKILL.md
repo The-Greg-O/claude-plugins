@@ -23,7 +23,7 @@ beating bzip2, and a Rust hot path sped up ~425×).
 ```
 runner.sh                one fresh `claude -p` per iteration (the "Ralph" loop)
   └─ iteration agent     reads notebook → ONE hypothesis → implement →
-       └─ loop.py        TRUSTED HARNESS: sole writer of results/leaderboard
+       └─ loop.py        TRUSTED HARNESS: sole writer of every trusted record
             └─ evaluate.py   THE ONLY DOMAIN CODE — gate + metrics contract
 ```
 

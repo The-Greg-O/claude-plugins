@@ -47,8 +47,10 @@ Numbers exist only if the harness printed them. The iterating agent is
 *statistically expected* to be optimistic about its own work — separating
 the worker from the referee is what makes unattended runs trustworthy.
 Corollaries:
-- results.jsonl / leaderboard.json are harness-written only; the notebook
-  copies the verdict verbatim; on disagreement the JSONL wins.
+- results.jsonl / leaderboard.json / loop_audit.jsonl are harness-written
+  only (the runner passes measurements to `loop.py audit-append`; it never
+  assembles a record itself); the notebook copies the verdict verbatim;
+  on disagreement the JSONL wins.
 - An adversarial "second opinion" (review subagent, or ultracode fan-out
   probing variants before the official eval) raises per-iteration quality
   but never replaces the harness verdict.
