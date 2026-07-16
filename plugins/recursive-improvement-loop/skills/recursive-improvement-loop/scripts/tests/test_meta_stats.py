@@ -164,6 +164,8 @@ class TestDiversity(unittest.TestCase):
         results = [result(1, ts(1)), result(2, ts(2))]
         s = loop.compute_meta_stats(CFG, results, audits, window=5)
         self.assertAlmostEqual(s["lineage_entropy_bits"], 0.0)
+        # positive zero, not the -0.0 float artifact (it reaches the report)
+        self.assertEqual(str(s["lineage_entropy_bits"]), "0.0")
 
     def test_hypothesis_repeat_rate_fuzzy_match_against_prior_history(self):
         audits = [audit(2, ts(10))]

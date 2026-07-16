@@ -330,7 +330,8 @@ def _entropy_bits(counts):
     total = sum(counts)
     if not total:
         return None
-    return -sum((c / total) * math.log2(c / total) for c in counts if c)
+    # + 0.0 normalizes the -0.0 float artifact of a single-lineage window
+    return -sum((c / total) * math.log2(c / total) for c in counts if c) + 0.0
 
 
 def _hyp_tokens(text):
