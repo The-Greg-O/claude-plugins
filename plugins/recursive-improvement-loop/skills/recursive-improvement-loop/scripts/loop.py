@@ -28,10 +28,15 @@ Commands:
                                   runner iterations (loop-improvement data)
     loop.py meta-ratchet check --window K [--eps E]
                                   keep/revert verdict on the trial POLICY.md
-    loop.py meta-ratchet arm [--policy-sha S]
+    loop.py meta-ratchet arm [--policy-file F]
                                   mark a trial policy as running blind
     loop.py lineage-scoreboard    per-lineage stats block (runner injects
                                   this into each iteration prompt)
+    loop.py audit-append --iter N --model M --ts-start T --wall S --exit RC
+                         --policy-file F [--result-file F] [--phase meta]
+                                  write one loop_audit.jsonl row (the
+                                  harness is the sole writer of trusted
+                                  records; the runner only measures)
     loop.py dashboard             regenerate dashboard only
     loop.py compact [--keep N]    roll aged notebook blocks into GRAVEYARD
 
@@ -41,6 +46,7 @@ Stdlib only; matplotlib is optional (dashboard falls back to HTML tables).
 
 import argparse
 import datetime as dt
+import hashlib
 import html
 import json
 import math
@@ -123,6 +129,47 @@ def write_leaderboard(lb):
     with open(tmp, "w") as f:
         json.dump(lb, f, indent=2)
     os.replace(tmp, LEADERBOARD)
+
+
+def _sha12_file(path):
+    """Short content hash for policy attribution; None if unreadable."""
+    try:
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()[:12]
+    except OSError:
+        return None
+
+
+def build_audit_record(iter_n, model, ts_start, wall_s, exit_code,
+                       policy_path, result_path, phase=None):
+    """Assemble one loop_audit.jsonl row: the runner passes only what it
+    uniquely measures (iteration, model, timestamps, wall clock, exit);
+    the harness parses the claude CLI result event and hashes the active
+    policy itself, so every trusted field is built by tested python."""
+    try:
+        d = json.load(open(result_path))
+    except Exception:
+        d = {}
+    u = d.get("usage") or {}
+    rec = {"iter": iter_n, "model": model, "ts_start": ts_start,
+           "wall_s": wall_s, "exit": exit_code}
+    if phase:
+        rec["phase"] = phase
+    rec.update({"policy_sha": _sha12_file(policy_path),
+                "api_ms": d.get("duration_api_ms"),
+                "turns": d.get("num_turns"),
+                "in_tokens": u.get("input_tokens"),
+                "out_tokens": u.get("output_tokens"),
+                "result_tail": (d.get("result") or "")[-200:]})
+    return rec
+
+
+def audit_append(iter_n, model, ts_start, wall_s, exit_code,
+                 policy_path, result_path, phase=None):
+    rec = build_audit_record(iter_n, model, ts_start, wall_s, exit_code,
+                             policy_path, result_path, phase=phase)
+    # one write() call per row: an interrupt can't tear the trusted record
+    with open(AUDIT, "a") as f:
+        f.write(json.dumps(rec) + "\n")
 
 
 # ---------------------------------------------------------------- evaluator
@@ -612,17 +659,18 @@ def _window_fitness(stats):
     return f if isinstance(f, (int, float)) else 0.0
 
 
-def meta_ratchet(cfg, op, window, eps, policy_sha=None):
+def meta_ratchet(cfg, op, window, eps, policy_file=None):
     state = json.load(open(META_STATE)) if os.path.exists(META_STATE) else None
     if op == "arm":
         if state is None:
             sys.exit("FATAL: meta-ratchet arm before any check — run "
                      "`loop.py meta-ratchet check` first")
+        sha = _sha12_file(policy_file) if policy_file else None
         state["pending"] = True
-        state["trial_policy_sha"] = policy_sha
+        state["trial_policy_sha"] = sha
         state["armed_ts"] = dt.datetime.now().isoformat(timespec="seconds")
         json.dump(state, open(META_STATE, "w"), indent=2)
-        print(json.dumps({"verdict": "armed", "trial_policy_sha": policy_sha}))
+        print(json.dumps({"verdict": "armed", "trial_policy_sha": sha}))
         return
     results = read_results()
     audits = ([json.loads(line) for line in open(AUDIT) if line.strip()]
@@ -968,11 +1016,20 @@ def main():
     p_meta.add_argument("--window", type=int, default=15)
     p_meta.add_argument("--json", action="store_true")
     sub.add_parser("lineage-scoreboard")
+    p_audit = sub.add_parser("audit-append")
+    p_audit.add_argument("--iter", type=int, required=True, dest="iter_n")
+    p_audit.add_argument("--model", required=True)
+    p_audit.add_argument("--ts-start", required=True)
+    p_audit.add_argument("--wall", type=int, required=True)
+    p_audit.add_argument("--exit", type=int, required=True, dest="exit_code")
+    p_audit.add_argument("--phase", default=None)
+    p_audit.add_argument("--policy-file", required=True)
+    p_audit.add_argument("--result-file", default=".last_result.json")
     p_ratchet = sub.add_parser("meta-ratchet")
     p_ratchet.add_argument("op", choices=("check", "arm"))
     p_ratchet.add_argument("--window", type=int, default=10)
     p_ratchet.add_argument("--eps", type=float, default=0.0)
-    p_ratchet.add_argument("--policy-sha", default=None)
+    p_ratchet.add_argument("--policy-file", default=None)
     sub.add_parser("dashboard")
     p_comp = sub.add_parser("compact")
     p_comp.add_argument("--keep", type=int, default=15)
@@ -1002,9 +1059,13 @@ def main():
         meta_stats(cfg, args.window, as_json=args.json)
     elif args.cmd == "meta-ratchet":
         meta_ratchet(cfg, args.op, args.window, args.eps,
-                     policy_sha=args.policy_sha)
+                     policy_file=args.policy_file)
     elif args.cmd == "lineage-scoreboard":
         lineage_scoreboard(cfg)
+    elif args.cmd == "audit-append":
+        audit_append(args.iter_n, args.model, args.ts_start, args.wall,
+                     args.exit_code, args.policy_file, args.result_file,
+                     phase=args.phase)
     elif args.cmd == "dashboard":
         make_dashboard(cfg)
         print(f"dashboard: {DASHBOARD}")

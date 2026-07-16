@@ -90,21 +90,18 @@ done
 ULTRA=0
 if [[ "$EFFORT" == "ultracode" ]]; then EFFORT="xhigh"; ULTRA=1; fi
 
-sha12() {  # short content hash for policy attribution in the audit log
-  python3 -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$1"
-}
-
 build_cmd() {  # $1 = model
   local prompt
-  # the policy surface is hot-swappable: re-read and re-hash it every iteration
+  # the policy surface is hot-swappable: re-read it every iteration. The
+  # harness hashes POLICY_FILE itself when it writes the audit row.
   if [[ -f PROMPT_CORE.md && -f POLICY.md ]]; then
     prompt="$(cat PROMPT_CORE.md)
 
 $(cat POLICY.md)"
-    POLICY_SHA="$(sha12 POLICY.md)"
+    POLICY_FILE=POLICY.md
   elif [[ -f PROMPT.md ]]; then     # legacy monolithic prompt
     prompt="$(cat PROMPT.md)"
-    POLICY_SHA="$(sha12 PROMPT.md)"
+    POLICY_FILE=PROMPT.md
   else
     echo "FATAL: no PROMPT_CORE.md + POLICY.md (or legacy PROMPT.md) in $PWD" >&2
     exit 1
@@ -172,9 +169,9 @@ run_meta_pass() {
   echo "meta: ratchet $verdict_json"
   if [[ "$verdict" == "revert" ]]; then
     git checkout -q -- POLICY.md
-    echo "meta: trial policy reverted — incumbent restored ($(sha12 POLICY.md))"
+    echo "meta: trial policy reverted — incumbent restored"
   elif [[ "$verdict" == "keep" ]]; then
-    git add POLICY.md && gitc commit -qm "meta: keep policy $(sha12 POLICY.md)"
+    git add POLICY.md && gitc commit -qm "meta: keep trial policy"
     echo "meta: trial policy kept as the new incumbent"
   fi
 
@@ -201,20 +198,10 @@ $stats
 
   # 4. audit the meta-pass spend (phase=meta rows are excluded from window
   #    fitness by meta-stats — both compared windows carry one meta-pass)
-  python3 -c "
-import json
-try:
-    d = json.load(open('.last_result.json'))
-except Exception:
-    d = {}
-u = d.get('usage') or {}
-rec = {'iter': $iter, 'phase': 'meta', 'model': '$mmodel', 'ts_start': '$ts_meta',
-       'wall_s': $(( $(date +%s) - t0m )), 'exit': $rcm,
-       'api_ms': d.get('duration_api_ms'), 'turns': d.get('num_turns'),
-       'in_tokens': u.get('input_tokens'), 'out_tokens': u.get('output_tokens'),
-       'result_tail': (d.get('result') or '')[-200:]}
-print(json.dumps(rec))
-" >> "$AUDIT"
+  python3 loop.py audit-append --iter "$iter" --model "$mmodel" \
+      --ts-start "$ts_meta" --wall "$(( $(date +%s) - t0m ))" --exit "$rcm" \
+      --phase meta --policy-file "$POLICY_FILE" --result-file .last_result.json \
+    || echo "WARNING: AUDIT WRITE FAILED for meta-pass after iteration $iter — row lost"
 
   # 5. enforce the write boundary: only POLICY.md (+ META_LOG.md) may change.
   #    Runner-owned scratch (audit, stream files, dashboard) is exempt.
@@ -239,8 +226,9 @@ print(json.dumps(rec))
       echo "meta: proposed diff ($diff_lines lines) exceeds cap $META_MAX_DIFF — rejected"
       git checkout -q -- POLICY.md
     else
-      python3 loop.py meta-ratchet arm --policy-sha "$(sha12 POLICY.md)" >/dev/null
-      echo "meta: trial policy $(sha12 POLICY.md) armed — runs blind for the next $META_EVERY iterations"
+      local armed
+      armed=$(python3 loop.py meta-ratchet arm --policy-file POLICY.md)
+      echo "meta: trial policy armed — runs blind for the next $META_EVERY iterations ($armed)"
     fi
   else
     echo "meta: no policy edit proposed (null pass)"
@@ -302,21 +290,12 @@ except Exception: sys.exit(1)"; then rc=1; fi
   t1=$(date +%s)
   wall=$((t1 - t0))
 
-  # audit record: wall time, api duration, turns, tokens (subscription => $0)
-  python3 -c "
-import json
-try:
-    d = json.load(open('.last_result.json'))
-except Exception:
-    d = {}
-u = d.get('usage') or {}
-rec = {'iter': $iter, 'model': '$model', 'ts_start': '$ts_start',
-       'wall_s': $wall, 'exit': $rc, 'policy_sha': '$POLICY_SHA',
-       'api_ms': d.get('duration_api_ms'), 'turns': d.get('num_turns'),
-       'in_tokens': u.get('input_tokens'), 'out_tokens': u.get('output_tokens'),
-       'result_tail': (d.get('result') or '')[-200:]}
-print(json.dumps(rec))
-" >> "$AUDIT"
+  # audit record: assembled and written by the harness (sole writer of
+  # trusted records); the runner passes only what it measured
+  python3 loop.py audit-append --iter "$iter" --model "$model" \
+      --ts-start "$ts_start" --wall "$wall" --exit "$rc" \
+      --policy-file "$POLICY_FILE" --result-file .last_result.json \
+    || echo "WARNING: AUDIT WRITE FAILED for iteration $iter — row lost"
 
   echo "iteration $iter done in ${wall}s (exit $rc)"
 

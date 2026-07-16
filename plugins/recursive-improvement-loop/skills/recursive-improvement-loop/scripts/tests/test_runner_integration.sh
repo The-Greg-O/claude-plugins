@@ -69,6 +69,14 @@ got="$(audit_sha "$EXP1/loop_audit.jsonl")"
 [[ -n "$expected" && "$got" == "$expected" ]] \
   && pass "audit policy_sha = sha256(POLICY.md)[:12]" \
   || fail "audit policy_sha '$got' != sha256(POLICY.md)[:12] '$expected'"
+nums="$(python3 -c "
+import json,sys
+r=json.loads(open(sys.argv[1]).readline())
+print(r.get('in_tokens'), r.get('out_tokens'), r.get('turns'), r.get('api_ms'))" \
+  "$EXP1/loop_audit.jsonl" 2>/dev/null)"
+[[ "$nums" == "1000 100 1 10" ]] \
+  && pass "audit numeric fields parsed by the harness" \
+  || fail "audit numeric fields wrong: '$nums' (expected '1000 100 1 10')"
 
 # ---------- scenario 2: legacy monolithic PROMPT.md still runs
 EXP2="$WORK/exp2"
