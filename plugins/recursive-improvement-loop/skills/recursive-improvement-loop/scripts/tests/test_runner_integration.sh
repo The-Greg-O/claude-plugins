@@ -53,6 +53,8 @@ python3 "$SCRIPTS/loop.py" init "$EXP1" >/dev/null
                                 || fail "init should scaffold POLICY.md"
 [[ ! -f "$EXP1/PROMPT.md" ]]    && pass "init no longer scaffolds PROMPT.md" \
                                 || fail "init should not scaffold monolithic PROMPT.md"
+[[ -f "$EXP1/_dashboard.py" ]]  && pass "init copies the _dashboard.py sibling" \
+                                || fail "init should copy _dashboard.py (display travels beside the referee)"
 
 (cd "$EXP1" && DASH_OPEN=never ./runner.sh -n 1 -p 5 -s 0 >/dev/null 2>&1) \
   || fail "runner exited nonzero in split mode"
