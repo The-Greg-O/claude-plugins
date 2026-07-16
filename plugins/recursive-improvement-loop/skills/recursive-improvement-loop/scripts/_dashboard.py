@@ -24,9 +24,9 @@ def make_dashboard(cfg):
     results = loop.read_results()
     cands = [r for r in results if r.get("lineage") != "baseline"]
     lb = loop.read_leaderboard()
-    audits = ([json.loads(line) for line in open(loop.AUDIT) if line.strip()]
-              if os.path.exists(loop.AUDIT) else [])
-    os.makedirs(loop.CHECKPOINT_DIR, exist_ok=True)
+    audits = ([json.loads(line) for line in open(loop.audit_path()) if line.strip()]
+              if os.path.exists(loop.audit_path()) else [])
+    os.makedirs(loop.checkpoint_dir(), exist_ok=True)
     cp_n = len(cands)
     png_rel = None
     try:
@@ -41,11 +41,11 @@ def make_dashboard(cfg):
     _write_html(cfg, cands, lb, audits, cp_n, png_rel)
     dash_open = os.environ.get("DASH_OPEN", "")
     if sys.platform == "darwin" and dash_open != "never":
-        if not os.path.exists(loop.DASH_MARKER):
-            subprocess.Popen(["open", loop.DASHBOARD])
-            open(loop.DASH_MARKER, "w").write(dt.datetime.now().isoformat())
+        if not os.path.exists(loop.dash_marker_path()):
+            subprocess.Popen(["open", loop.dashboard_path()])
+            open(loop.dash_marker_path(), "w").write(dt.datetime.now().isoformat())
         elif dash_open == "every" and png_rel:
-            subprocess.Popen(["open", "-g", os.path.join(loop.ROOT, png_rel)])
+            subprocess.Popen(["open", "-g", os.path.join(loop.root_path(), png_rel)])
 
 
 def _plot(cfg, cands, lb, audits, cp_n):
@@ -185,9 +185,9 @@ def _plot(cfg, cands, lb, audits, cp_n):
     axe.set_title("agent time + tokens per runner iteration", loc="left", fontsize=10, pad=6, color=TEXT)
     axe.set_xlabel("runner iteration")
 
-    png = os.path.join(loop.CHECKPOINT_DIR, f"cp_{cp_n:04d}.png")
+    png = os.path.join(loop.checkpoint_dir(), f"cp_{cp_n:04d}.png")
     fig.savefig(png, dpi=120, facecolor=BG)
-    fig.savefig(os.path.join(loop.CHECKPOINT_DIR, "cp_latest.png"), dpi=120, facecolor=BG)
+    fig.savefig(os.path.join(loop.checkpoint_dir(), "cp_latest.png"), dpi=120, facecolor=BG)
     plt.close(fig)
     return "checkpoints/cp_latest.png"
 
@@ -238,6 +238,6 @@ def _write_html(cfg, cands, lb, audits, cp_n, png_rel):
 <h2>Audit</h2><p>{len(audits)} runner iterations, {total_wall / 60:.1f} min total wall time.
 Machine truth: results.jsonl · leaderboard.json · loop_audit.jsonl.</p>
 </body></html>"""
-    with open(loop.DASHBOARD, "w") as f:
+    with open(loop.dashboard_path(), "w") as f:
         f.write(html_doc)
 

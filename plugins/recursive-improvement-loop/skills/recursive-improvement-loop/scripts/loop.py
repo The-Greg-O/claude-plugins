@@ -58,24 +58,37 @@ import subprocess
 import sys
 import time
 
-ROOT = os.getcwd()
-CONFIG = os.path.join(ROOT, "experiment.json")
-RESULTS = os.path.join(ROOT, "results.jsonl")
-LEADERBOARD = os.path.join(ROOT, "leaderboard.json")
-NOTEBOOK = os.path.join(ROOT, "LAB_NOTEBOOK.md")
-AUDIT = os.path.join(ROOT, "loop_audit.jsonl")
-META_STATE = os.path.join(ROOT, "meta_state.json")
-CHECKPOINT_DIR = os.path.join(ROOT, "checkpoints")
-DASHBOARD = os.path.join(ROOT, "dashboard.html")
-DASH_MARKER = os.path.join(ROOT, ".dash_opened")
+# Experiment-layout paths resolve against the CURRENT directory at call
+# time, not import time, so the referee can be pointed at any experiment
+# dir in-process (tests use tempdir fixtures). CLI behavior is unchanged —
+# every command already runs from the experiment root.
+def root_path():
+    return os.getcwd()
+
+
+def _p(name):
+    return os.path.join(os.getcwd(), name)
+
+
+def config_path():      return _p("experiment.json")
+def results_path():     return _p("results.jsonl")
+def leaderboard_path(): return _p("leaderboard.json")
+def notebook_path():    return _p("LAB_NOTEBOOK.md")
+def audit_path():       return _p("loop_audit.jsonl")
+def meta_state_path():  return _p("meta_state.json")
+def checkpoint_dir():   return _p("checkpoints")
+def dashboard_path():   return _p("dashboard.html")
+def dash_marker_path(): return _p(".dash_opened")
+
+
 TEMPLATES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 
 
 def load_config():
-    if not os.path.exists(CONFIG):
+    if not os.path.exists(config_path()):
         sys.exit("FATAL: no experiment.json here. Run `loop.py init` first "
                  "(or cd into the experiment directory).")
-    cfg = json.load(open(CONFIG))
+    cfg = json.load(open(config_path()))
     for key in ("name", "eval_cmd", "primary_metric", "direction"):
         if key not in cfg:
             sys.exit(f"FATAL: experiment.json missing required key: {key}")
@@ -106,29 +119,29 @@ def better(cfg, a, b):
 # ---------------------------------------------------------------- records
 
 def read_results():
-    if not os.path.exists(RESULTS):
+    if not os.path.exists(results_path()):
         return []
-    return [json.loads(line) for line in open(RESULTS) if line.strip()]
+    return [json.loads(line) for line in open(results_path()) if line.strip()]
 
 
 def read_leaderboard():
-    if os.path.exists(LEADERBOARD):
-        return json.load(open(LEADERBOARD))
+    if os.path.exists(leaderboard_path()):
+        return json.load(open(leaderboard_path()))
     return {"champion": None, "history": [], "baselines": {}}
 
 
 def append_result(rec):
-    with open(RESULTS, "a") as f:
+    with open(results_path(), "a") as f:
         f.write(json.dumps(rec) + "\n")
 
 
 def write_leaderboard(lb):
     # atomic: write to a temp file then replace, so an interrupt can never
     # leave the trusted leaderboard.json half-written.
-    tmp = LEADERBOARD + ".tmp"
+    tmp = leaderboard_path() + ".tmp"
     with open(tmp, "w") as f:
         json.dump(lb, f, indent=2)
-    os.replace(tmp, LEADERBOARD)
+    os.replace(tmp, leaderboard_path())
 
 
 def _sha12_file(path):
@@ -168,7 +181,7 @@ def audit_append(iter_n, model, ts_start, wall_s, exit_code,
     rec = build_audit_record(iter_n, model, ts_start, wall_s, exit_code,
                              policy_path, result_path, phase=phase)
     # one write() call per row: an interrupt can't tear the trusted record
-    with open(AUDIT, "a") as f:
+    with open(audit_path(), "a") as f:
         f.write(json.dumps(rec) + "\n")
 
 
@@ -179,7 +192,7 @@ def run_evaluator(cfg, candidate_path):
     t0 = time.perf_counter()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True,
-                              timeout=cfg["eval_timeout_s"], cwd=ROOT)
+                              timeout=cfg["eval_timeout_s"], cwd=root_path())
     except subprocess.TimeoutExpired:
         return {"gate_passed": False,
                 "gate_error": f"evaluator exceeded {cfg['eval_timeout_s']}s",
@@ -215,7 +228,7 @@ def verify_champion(cfg, iter_n=None):
     every = max(1, int(cfg["reverify_every"]))
     if iter_n is not None and every > 1 and iter_n % every != 0:
         return ch                      # skip this round (expensive evaluators)
-    path = os.path.join(ROOT, ch["candidate"])
+    path = os.path.join(root_path(), ch["candidate"])
     if not os.path.exists(path):
         sys.exit(f"FATAL: champion file {ch['candidate']} missing — refusing to run")
     out = run_evaluator(cfg, path)
@@ -242,7 +255,7 @@ def eval_candidate(cfg, path, meta, baseline=False):
     if not os.path.isfile(path):
         sys.exit(f"FATAL: candidate {path} does not exist or is not a file "
                  f"(nothing recorded — create it and re-run)")
-    relpath = os.path.relpath(os.path.abspath(path), ROOT)
+    relpath = os.path.relpath(os.path.abspath(path), root_path())
     size = os.path.getsize(path)
     results = read_results()
     iter_n = 1 + sum(1 for r in results if r.get("lineage") != "baseline")
@@ -538,8 +551,8 @@ def compute_meta_stats(cfg, results, audits, window):
 
 def meta_stats(cfg, window, as_json=False):
     results = read_results()
-    audits = ([json.loads(line) for line in open(AUDIT) if line.strip()]
-              if os.path.exists(AUDIT) else [])
+    audits = ([json.loads(line) for line in open(audit_path()) if line.strip()]
+              if os.path.exists(audit_path()) else [])
     s = compute_meta_stats(cfg, results, audits, window)
     if as_json:
         print(json.dumps(s, indent=2))
@@ -660,7 +673,7 @@ def _window_fitness(stats):
 
 
 def meta_ratchet(cfg, op, window, eps, policy_file=None):
-    state = json.load(open(META_STATE)) if os.path.exists(META_STATE) else None
+    state = json.load(open(meta_state_path())) if os.path.exists(meta_state_path()) else None
     if op == "arm":
         if state is None:
             sys.exit("FATAL: meta-ratchet arm before any check — run "
@@ -669,19 +682,19 @@ def meta_ratchet(cfg, op, window, eps, policy_file=None):
         state["pending"] = True
         state["trial_policy_sha"] = sha
         state["armed_ts"] = dt.datetime.now().isoformat(timespec="seconds")
-        json.dump(state, open(META_STATE, "w"), indent=2)
+        json.dump(state, open(meta_state_path(), "w"), indent=2)
         print(json.dumps({"verdict": "armed", "trial_policy_sha": sha}))
         return
     results = read_results()
-    audits = ([json.loads(line) for line in open(AUDIT) if line.strip()]
-              if os.path.exists(AUDIT) else [])
+    audits = ([json.loads(line) for line in open(audit_path()) if line.strip()]
+              if os.path.exists(audit_path()) else [])
     stats = compute_meta_stats(cfg, results, audits, window)
     fitness = _window_fitness(stats)
     verdict, new_state = decide_meta_ratchet(state, fitness, eps)
     new_state["checked_ts"] = dt.datetime.now().isoformat(timespec="seconds")
     new_state["window"] = window
     new_state["eps"] = eps
-    json.dump(new_state, open(META_STATE, "w"), indent=2)
+    json.dump(new_state, open(meta_state_path(), "w"), indent=2)
     print(json.dumps({"verdict": verdict, "fitness": fitness,
                       "incumbent_fitness": new_state["incumbent_fitness"],
                       "window_evals": stats["evals"],
@@ -707,10 +720,10 @@ def _refresh_dashboard(cfg):
 # ---------------------------------------------------------------- compact
 
 def compact_notebook(keep):
-    if not os.path.exists(NOTEBOOK):
+    if not os.path.exists(notebook_path()):
         print("no LAB_NOTEBOOK.md here")
         return
-    text = open(NOTEBOOK).read()
+    text = open(notebook_path()).read()
     m = re.search(r"(## ACTIVE LOG\n)(.*)$", text, re.S)
     if not m:
         print("no ACTIVE LOG section found")
@@ -749,7 +762,7 @@ def compact_notebook(keep):
             print("ERROR: no GRAVEYARD section found — aborting WITHOUT writing "
                   "(aged blocks preserved). Add a '## GRAVEYARD' heading first.")
             return
-    open(NOTEBOOK, "w").write(new_text)
+    open(notebook_path(), "w").write(new_text)
     print(f"compacted {len(aged)} aged blocks into GRAVEYARD; kept {len(kept)}")
 
 
@@ -860,7 +873,7 @@ def main():
                      phase=args.phase)
     elif args.cmd == "dashboard":
         _refresh_dashboard(cfg)
-        print(f"dashboard: {DASHBOARD}")
+        print(f"dashboard: {dashboard_path()}")
     elif args.cmd == "compact":
         compact_notebook(args.keep)
     else:
