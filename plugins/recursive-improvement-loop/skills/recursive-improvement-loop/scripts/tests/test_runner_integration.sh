@@ -114,9 +114,10 @@ markers=$(grep -c "TRIAL-EDIT" "$EXP3/POLICY.md" 2>/dev/null || true)
 meta_rows=$(python3 -c "
 import json
 rows=[json.loads(l) for l in open('$EXP3/loop_audit.jsonl') if l.strip()]
-print(sum(1 for r in rows if r.get('phase')=='meta'))" 2>/dev/null)
-[[ "$meta_rows" == "2" ]] && pass "2 meta-pass audit rows recorded" \
-  || fail "expected 2 phase=meta audit rows, got '$meta_rows'"
+metas=[r for r in rows if r.get('phase')=='meta']
+print(len(metas), sum(1 for r in metas if 'policy_sha' in r))" 2>/dev/null)
+[[ "$meta_rows" == "2 0" ]] && pass "2 meta rows recorded, none carries policy_sha" \
+  || fail "expected 2 phase=meta rows with no policy_sha key, got '$meta_rows'"
 pending=$(python3 -c "
 import json;print(json.load(open('$EXP3/meta_state.json'))['pending'])" 2>/dev/null)
 [[ "$pending" == "True" ]] && pass "meta_state pending after re-arm" \

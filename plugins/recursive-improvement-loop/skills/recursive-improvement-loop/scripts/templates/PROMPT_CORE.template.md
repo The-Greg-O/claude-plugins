@@ -37,8 +37,12 @@ able to defend every line you submit.
 python3 loop.py eval --candidate candidates/<id> \
   --meta '{"lineage":"<lineage>","parent":"<id|null>","hypothesis":"<one line>"}'
 ```
-- NEVER edit loop.py, evaluate.py, results.jsonl, leaderboard.json,
-  PROMPT_CORE.md, POLICY.md, or the frozen evaluation data.
+- NEVER edit loop.py, evaluate.py, _dashboard.py, _stream_view.py,
+  results.jsonl, leaderboard.json, PROMPT_CORE.md, POLICY.md, or the
+  frozen evaluation data.
+- NEVER invoke `loop.py audit-append` or `loop.py meta-ratchet` — those
+  subcommands are runner-only; your only harness call is `loop.py eval`
+  (plus read-only status/meta-stats/compact).
 - NEVER self-report numbers — copy the printed HARNESS VERDICT.
 - If you believe the harness/evaluator is wrong, write the suspicion under
   INSIGHTS and stop; a human adjudicates.

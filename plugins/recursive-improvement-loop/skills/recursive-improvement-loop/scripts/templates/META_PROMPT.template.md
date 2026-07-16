@@ -12,10 +12,13 @@ PROMPT_CORE.md (frozen — not yours to touch). This file is frozen too.
   `## <ISO date> — <one-line policy hypothesis>` plus up to 5 lines of
   rationale tying the change to specific meta-stats numbers.
 
-Everything else is out of bounds: loop.py, evaluate.py, PROMPT_CORE.md,
-META_PROMPT.md, results.jsonl, leaderboard.json, loop_audit.jsonl,
-meta_state.json, candidates/, LAB_NOTEBOOK.md, and the frozen evaluation
-data. The runner diff-checks your changes and rolls back violations.
+Everything else is out of bounds: loop.py, evaluate.py, _dashboard.py,
+_stream_view.py, PROMPT_CORE.md, META_PROMPT.md, results.jsonl,
+leaderboard.json, loop_audit.jsonl, meta_state.json, candidates/,
+LAB_NOTEBOOK.md, and the frozen evaluation data. Never invoke
+`loop.py audit-append` or `loop.py meta-ratchet` yourself — they are
+runner-only. The runner diff-checks your changes and rolls back
+violations.
 
 ## Inputs (read-only)
 - The meta-stats JSON appended below — harness-computed over the window

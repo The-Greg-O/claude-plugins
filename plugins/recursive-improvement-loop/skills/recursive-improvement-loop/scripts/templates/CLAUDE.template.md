@@ -8,7 +8,12 @@ or headless.
 
 ## Trust boundaries (non-negotiable)
 - `loop.py` (harness) and `evaluate.py` (evaluator) are the trusted
-  referees. Never modify either.
+  referees. Never modify either. `_dashboard.py` and `_stream_view.py`
+  execute alongside the harness — never modify them either.
+- `loop.py audit-append` and `loop.py meta-ratchet` are RUNNER-ONLY
+  subcommands. An iteration agent invoking them (or writing to any
+  trusted record by any other means) is a trust violation, same as
+  editing the harness.
 - `results.jsonl`, `leaderboard.json`, `loop_audit.jsonl`, `checkpoints/`,
   and the frozen evaluation data are harness-written (the runner only
   measures; loop.py is the sole writer of trusted records). Never write.

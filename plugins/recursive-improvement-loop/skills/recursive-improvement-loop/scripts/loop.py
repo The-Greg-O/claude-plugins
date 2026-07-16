@@ -157,8 +157,10 @@ def build_audit_record(iter_n, model, ts_start, wall_s, exit_code,
                        policy_path, result_path, phase=None):
     """Assemble one loop_audit.jsonl row: the runner passes only what it
     uniquely measures (iteration, model, timestamps, wall clock, exit);
-    the harness parses the claude CLI result event and hashes the active
-    policy itself, so every trusted field is built by tested python."""
+    the harness parses the claude CLI result event and hashes the policy
+    snapshot itself, so every trusted field is built by tested python.
+    policy_path=None (meta-pass rows) omits the policy_sha key: meta
+    spend is overhead, not attributable to a policy."""
     try:
         d = json.load(open(result_path))
     except Exception:
@@ -168,8 +170,9 @@ def build_audit_record(iter_n, model, ts_start, wall_s, exit_code,
            "wall_s": wall_s, "exit": exit_code}
     if phase:
         rec["phase"] = phase
-    rec.update({"policy_sha": _sha12_file(policy_path),
-                "api_ms": d.get("duration_api_ms"),
+    if policy_path is not None:
+        rec["policy_sha"] = _sha12_file(policy_path)
+    rec.update({"api_ms": d.get("duration_api_ms"),
                 "turns": d.get("num_turns"),
                 "in_tokens": u.get("input_tokens"),
                 "out_tokens": u.get("output_tokens"),
@@ -713,6 +716,10 @@ def _refresh_dashboard(cfg):
     try:
         import _dashboard
         _dashboard.make_dashboard(cfg)
+    except ImportError:
+        print("warning: _dashboard.py missing — dashboard disabled (copy it "
+              "from the plugin's scripts/ next to loop.py to restore it)",
+              file=sys.stderr)
     except Exception as e:
         print(f"warning: dashboard refresh failed ({e})", file=sys.stderr)
 
@@ -829,7 +836,7 @@ def main():
     p_audit.add_argument("--wall", type=int, required=True)
     p_audit.add_argument("--exit", type=int, required=True, dest="exit_code")
     p_audit.add_argument("--phase", default=None)
-    p_audit.add_argument("--policy-file", required=True)
+    p_audit.add_argument("--policy-file", default=None)
     p_audit.add_argument("--result-file", default=".last_result.json")
     p_ratchet = sub.add_parser("meta-ratchet")
     p_ratchet.add_argument("op", choices=("check", "arm"))
@@ -846,6 +853,13 @@ def main():
         return
     if args.cmd is None:
         ap.print_help()
+        return
+    if args.cmd == "audit-append":
+        # dispatched before load_config: a corrupted experiment.json must
+        # not cost the campaign its audit rows (spend happened regardless)
+        audit_append(args.iter_n, args.model, args.ts_start, args.wall,
+                     args.exit_code, args.policy_file, args.result_file,
+                     phase=args.phase)
         return
     cfg = load_config()
     if args.cmd == "eval":
@@ -868,10 +882,6 @@ def main():
                      policy_file=args.policy_file)
     elif args.cmd == "lineage-scoreboard":
         lineage_scoreboard(cfg)
-    elif args.cmd == "audit-append":
-        audit_append(args.iter_n, args.model, args.ts_start, args.wall,
-                     args.exit_code, args.policy_file, args.result_file,
-                     phase=args.phase)
     elif args.cmd == "dashboard":
         _refresh_dashboard(cfg)
         print(f"dashboard: {dashboard_path()}")

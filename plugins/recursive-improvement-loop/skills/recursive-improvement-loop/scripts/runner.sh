@@ -92,16 +92,19 @@ if [[ "$EFFORT" == "ultracode" ]]; then EFFORT="xhigh"; ULTRA=1; fi
 
 build_cmd() {  # $1 = model
   local prompt
-  # the policy surface is hot-swappable: re-read it every iteration. The
-  # harness hashes POLICY_FILE itself when it writes the audit row.
+  # the policy surface is hot-swappable: re-read it every iteration, and
+  # SNAPSHOT it (.policy_used) at prompt-build time — the harness hashes
+  # the snapshot when it writes the audit row, so a policy edited while
+  # the iteration is in flight is still attributed to the policy that
+  # actually built this iteration's prompt.
   if [[ -f PROMPT_CORE.md && -f POLICY.md ]]; then
     prompt="$(cat PROMPT_CORE.md)
 
 $(cat POLICY.md)"
-    POLICY_FILE=POLICY.md
+    cp -f POLICY.md .policy_used
   elif [[ -f PROMPT.md ]]; then     # legacy monolithic prompt
     prompt="$(cat PROMPT.md)"
-    POLICY_FILE=PROMPT.md
+    cp -f PROMPT.md .policy_used
   else
     echo "FATAL: no PROMPT_CORE.md + POLICY.md (or legacy PROMPT.md) in $PWD" >&2
     exit 1
@@ -198,9 +201,11 @@ $stats
 
   # 4. audit the meta-pass spend (phase=meta rows are excluded from window
   #    fitness by meta-stats — both compared windows carry one meta-pass)
+  # (no --policy-file: meta rows carry no policy_sha — the pass's spend is
+  # meta-loop overhead, not attributable to any single policy)
   python3 loop.py audit-append --iter "$iter" --model "$mmodel" \
       --ts-start "$ts_meta" --wall "$(( $(date +%s) - t0m ))" --exit "$rcm" \
-      --phase meta --policy-file "$POLICY_FILE" --result-file .last_result.json \
+      --phase meta --result-file .last_result.json \
     || echo "WARNING: AUDIT WRITE FAILED for meta-pass after iteration $iter — row lost"
 
   # 5. enforce the write boundary: only POLICY.md (+ META_LOG.md) may change.
@@ -208,7 +213,7 @@ $stats
   local changed illegal untracked
   changed=$(git diff --name-only)
   illegal=$(echo "$changed" | grep -vE \
-    '^(POLICY\.md|META_LOG\.md|\.last_result\.json|runner_last_stderr\.log|loop_audit\.jsonl|dashboard\.html|\.dash_opened)$|^checkpoints/' \
+    '^(POLICY\.md|META_LOG\.md|\.last_result\.json|\.policy_used|runner_last_stderr\.log|loop_audit\.jsonl|dashboard\.html|\.dash_opened)$|^checkpoints/' \
     | grep -v '^$' || true)
   if [[ -n "$illegal" ]]; then
     echo "meta: BOUNDARY VIOLATION — meta-pass touched: $illegal — restoring; trial NOT armed"
@@ -269,7 +274,7 @@ i=1
 while ((i <= MAX_ITERS)); do
   iter=$((ITER_START + i))
   model="$MODEL"
-  if ((DEEP_EVERY > 0 && i % DEEP_EVERY == 0)); then model="$DEEP_MODEL"; fi
+  if ((DEEP_EVERY > 0)) && ((i % DEEP_EVERY == 0)); then model="$DEEP_MODEL"; fi
 
   echo
   echo "=== iteration $iter (model: $model) $(date '+%H:%M:%S') ==="
@@ -294,7 +299,7 @@ except Exception: sys.exit(1)"; then rc=1; fi
   # trusted records); the runner passes only what it measured
   python3 loop.py audit-append --iter "$iter" --model "$model" \
       --ts-start "$ts_start" --wall "$wall" --exit "$rc" \
-      --policy-file "$POLICY_FILE" --result-file .last_result.json \
+      --policy-file .policy_used --result-file .last_result.json \
     || echo "WARNING: AUDIT WRITE FAILED for iteration $iter — row lost"
 
   echo "iteration $iter done in ${wall}s (exit $rc)"
@@ -327,8 +332,10 @@ except Exception: sys.exit(1)"; then rc=1; fi
     break
   fi
 
-  # meta-loop: verdict the finished window, maybe arm a new trial policy
-  if ((META_EVERY > 0 && i % META_EVERY == 0)); then
+  # meta-loop: verdict the finished window, maybe arm a new trial policy.
+  # Two arithmetic commands, not one: macOS bash 3.2 does not short-circuit
+  # && inside (( )), so the combined form divides by zero when meta is off.
+  if ((META_EVERY > 0)) && ((i % META_EVERY == 0)); then
     run_meta_pass
   fi
 

@@ -188,29 +188,36 @@ class TestEmbedTheAnswerGuard(RefereeFixture):
 
 
 class TestDriftGuard(RefereeFixture):
+    # each test asserts on the abort MESSAGE, not just SystemExit — a bare
+    # SystemExit assertion cannot tell the intended abort from an
+    # unrelated FATAL (mutation-verified during review)
+
     def test_champion_primary_drift_aborts(self):
         self.run_eval("seed", score=1.0)
         self.write_candidate("seed", score=2.0)   # environment "drifted"
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(SystemExit) as cm:
                 loop.eval_candidate(self.cfg, self.write_candidate(
                     "c2", score=3.0), {})
+        self.assertIn("drift", str(cm.exception))
 
     def test_champion_gate_regression_aborts(self):
         self.run_eval("seed", score=1.0)
         self.write_candidate("seed", gate=False, error="rot")
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(SystemExit) as cm:
                 loop.eval_candidate(self.cfg, self.write_candidate(
                     "c2", score=3.0), {})
+        self.assertIn("no longer passes the gate", str(cm.exception))
 
     def test_missing_champion_file_aborts(self):
         self.run_eval("seed", score=1.0)
         os.remove(os.path.join("candidates", "seed"))
         with contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(SystemExit) as cm:
                 loop.eval_candidate(self.cfg, self.write_candidate(
                     "c2", score=3.0), {})
+        self.assertIn("missing", str(cm.exception))
 
 
 class TestGateOnlyReverify(RefereeFixture):
@@ -221,6 +228,17 @@ class TestGateOnlyReverify(RefereeFixture):
         self.write_candidate("seed", score=2.0)   # noisy primary drifted
         rec = self.run_eval("c2", score=1.5)      # must not abort
         self.assertTrue(rec["promoted"])          # vs STORED champion 1.0
+
+    def test_gate_regression_still_aborts_in_gate_only_mode(self):
+        # gate-only skips the drift COMPARISON, never the gate CHECK —
+        # it is the only protection gate-only mode retains
+        self.run_eval("seed", score=1.0)
+        self.write_candidate("seed", gate=False, error="rot")
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                loop.eval_candidate(self.cfg, self.write_candidate(
+                    "c2", score=1.5), {})
+        self.assertIn("no longer passes the gate", str(cm.exception))
 
 
 class TestEvaluatorContract(RefereeFixture):

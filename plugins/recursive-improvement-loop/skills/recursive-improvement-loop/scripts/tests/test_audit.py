@@ -81,6 +81,12 @@ class TestBuildAuditRecord(unittest.TestCase):
         rec = self.build(policy_path=os.path.join(self.tmp.name, "gone.md"))
         self.assertIsNone(rec["policy_sha"])
 
+    def test_no_policy_file_omits_the_key_entirely(self):
+        # meta-pass rows carry no policy_sha (schema-compatible with
+        # pre-refactor rows; meta spend is not attributable to a policy)
+        rec = self.build(policy_path=None, phase="meta")
+        self.assertNotIn("policy_sha", rec)
+
     def test_json_serializable_single_line(self):
         line = json.dumps(self.build())
         self.assertNotIn("\n", line)
